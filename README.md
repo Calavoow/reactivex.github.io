@@ -1,19 +1,19 @@
 reactivex.github.io
 ===================
 
-ReactiveX Website - Jekyll experiment
+ReactiveX Website - [Jekyll](http://jekyllrb.com/) experiment
 
-Build
------
+Install Jekyll
+--------------
 
 ```
-jekyll build
+$ gem install jekyll
 ```
 
 Run
 ---
 
 ```
-jekyll serve
+$ jekyll serve
 ```
 
