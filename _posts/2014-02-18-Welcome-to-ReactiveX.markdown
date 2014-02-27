@@ -42,6 +42,33 @@ HTML table:
     </table>
 </center>
 
+<center><table>
+ <thead>
+  <tr><td colspan="2">Example code showing how similar high-order functions can be applied to an Iterable and an Observable</td></tr>
+  <tr><th>Iterable</th><th>Observable</th></tr>
+ </thead>
+ <tbody>
+  <tr><td>
+{% highlight java %}
+getDataFromLocalMemory()
+.skip(10)
+.take(5)
+.map({ s -> return s + " transformed" })
+.forEach({ println "next => " + it })
+{% endhighlight %}
+  </td>
+  <td>
+{% highlight java %}
+getDataFromNetwork()
+.skip(10)
+.take(5)
+.map({ s -> return s + " transformed" })
+.subscribe({ println "onNext => " + it })
+{% endhighlight %}
+  </td></tr>
+ </tbody>
+</table></center>
+
 Code snippet:
 
 {% highlight ruby %}
