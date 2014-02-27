@@ -13,8 +13,13 @@
         <link rel="stylesheet" href="/css/main.css">
         
         <script src="/js/jquery-1.11.0.min.js"></script>
-        <link rel="stylesheet" href="{{ site.url }}/js/jquery-ui-1.10.4/themes/base/minified/jquery-ui.min.css">
+        <link rel="stylesheet" href="/js/jquery-ui-1.10.4/themes/base/minified/jquery-ui.min.css">
         <script src="/js/jquery-ui-1.10.4/ui/jquery-ui.js"></script>
+
+        <!--script src="/js/bootstrap-3.1.1/js/bootstrap.min.js"></script-->
+        <script src="/js/jquery-dropdown/jquery.dropdown.min.js"></script>
+        <link rel="stylesheet" href="/js/jquery-dropdown/jquery.dropdown.css">
+
         <script>
         $(function() {
             $( "#tabs" ).tabs();
@@ -31,6 +36,26 @@
                   <a href="/">{{ site.name }}</a>
               </h1>
             <a class="extra" href="/">home</a>
+            <a class="extra" href="#" data-dropdown="#polyglot">polyglot</a>
+            <div id="polyglot" class="dropdown dropdown-tip">
+                <ul class="dropdown-menu">
+                    <li><a href="#">RxJava</a></li>
+                        <li class="dropdown-divider"></li>
+                    <li><a href="#">RxScala</a></li>
+                        <li class="dropdown-divider"></li>
+                    <li><a href="#">RxClojure</a></li>
+                        <li class="dropdown-divider"></li>
+                    <li><a href="#">RxKotlin</a></li>
+                        <li class="dropdown-divider"></li>
+                    <li><a href="#">RxJRuby</a></li>
+                        <li class="dropdown-divider"></li>
+                    <li><a href="#">RxGroovy</a></li>
+                        <li class="dropdown-divider"></li>
+                    <li><a href="#">RxAndroid</a></li>
+                        <li class="dropdown-divider"></li>
+                    <li><a href="#">RxSwing</a></li>
+                </ul>
+            </div>
           </div>
 
           {{ content }}
