@@ -161,6 +161,13 @@ a:visited { color: #a0a; }
 
 /*****************************************************************************/
 /*
+/* Disable Link highlighting
+/*
+/*****************************************************************************/
+a:focus { outline: 0; }
+
+/*****************************************************************************/
+/*
 /* Tables
 /*
 /*****************************************************************************/
@@ -263,25 +270,37 @@ pre {
 
 /*****************************************************************************/
 /*
-/* Tables
+/* Tabs
 /*
 /*****************************************************************************/
 
-.tabs a{
-  cursor: pointer;
-  padding: 5px;
-  background: #fff;
-  color: #000;
-  border: 1px solid #666;
-  border-bottom: 0;
+ul.tabs {
+  list-style-type: none;
+  margin: 0;
+  padding: 0;
 }
-.tabs a:hover, .tabs a.active{
-  background: #666;
-  color: #fff;
+ul.tabs li {
+  border: gray solid 1px;
+  border-bottom: none;
+  float: left;
+  margin: 0 .25em 0 0;
+  padding: .25em .5em;
 }
-
-.tabContent{
-  border: 1px solid #aaa;
-  margin: 4px 0;
-  padding: 5px;
+ul.tabs li a {
+  color: gray;
+  font-weight: bold;
+  text-decoration: none;
+}
+ul.tabs li.active {
+  background: gray;
+}
+ul.tabs li.active a {
+  color: white;
+}
+.clr {
+  clear: both;
+}
+article {
+  border-top: gray solid 1px;
+  padding: 0 1em;
 }
