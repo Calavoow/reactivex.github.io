@@ -316,6 +316,11 @@ pre {
 /* Secondary menu
 /*
 /*****************************************************************************/
+#nav img {
+    width: 28px;
+    vertical-align: middle;
+}
+
 #nav span {
     display: none;
 }
@@ -326,7 +331,7 @@ pre {
 }
 #nav {
     background-color: #F5F5F5;
-    border-bottom: 5px solid #333333;
+    border-bottom: 5px solid #DDDDDD;
     float: left;
     position: relative;
     width: 100%;
@@ -357,8 +362,8 @@ pre {
 #nav > li > a {
     color: #333333;
     display: block;
-    font-size: 1.3em;
-    line-height: 49px;
+    font-size: 1.1em;
+    line-height: 44px;
     padding: 0 15px;
 }
 #nav > li:hover > a, #nav > a:hover {

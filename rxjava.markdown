@@ -2,6 +2,7 @@
 layout: rxflavor
 title: ReactiveX - RxJava
 flavor: RxJava
+lang: java
 repo: https://github.com/Netflix/RxJava
 ---
 

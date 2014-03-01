@@ -2,6 +2,7 @@
 layout: rxflavor
 title: ReactiveX - RxScala
 flavor: RxScala
+lang: scala
 repo: https://github.com/Netflix/RxJava/tree/master/language-adaptors/rxjava-scala
 ---
 

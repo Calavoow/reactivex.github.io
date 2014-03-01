@@ -4,7 +4,12 @@ layout: default
 <!--h1>{{ page.flavor }}</h1-->
 <div class="container">
     <ul id="nav">
-        <li><a href="#"><strong>{{ page.flavor }}</strong></a></li>
+        <li>
+            <a href="#">
+                <img src="{{ site.url }}/assets/icons/{{ page.lang }}.png" class="lang-logo" />
+                <strong>{{ page.flavor }}</strong>
+            </a>
+        </li>
         <li><a href="#s1">quickstart</a></li>
         <li><a href="#s2">documentation</a>
             <span id="s2"></span>
