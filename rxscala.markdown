@@ -2,6 +2,7 @@
 layout: rxflavor
 title: ReactiveX - RxScala
 flavor: RxScala
+repo: https://github.com/Netflix/RxJava/tree/master/language-adaptors/rxjava-scala
 ---
 
 RxScala brings <em>Reactive Extensions</em> to Scala. Rx was first implemented for <a href="https://rx.codeplex.com">.NET</a>, and is now being implemented in <a href="https://github.com/Netflix/RxJava">Java</a>. The RxScala project is an adaptor for RxJava. Its code is in a <a href="https://github.com/Netflix/RxJava/tree/master/language-adaptors/rxjava-scala">subdirectory</a> of the RxJava repository, and it’s also distributed from there on <a href="http://search.maven.org/#search%7Cga%7C1%7Ca%3A%22rxjava-scala%22">Maven Central</a>.

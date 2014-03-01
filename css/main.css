@@ -70,7 +70,7 @@ a:visited { color: #a0a; }
 
 .title {
   display: inline-block;
-  margin-bottom: 2em;
+  margin-bottom: 1.3em;
 }
 
 .title a {
@@ -311,4 +311,121 @@ pre {
     heigth: 24px;
 }
 
+/*****************************************************************************/
+/*
+/* Secondary menu
+/*
+/*****************************************************************************/
+#nav span {
+    display: none;
+}
+#nav, #nav ul {
+    list-style: none outside none;
+    margin: 0;
+    padding: 0;
+}
+#nav {
+    background-color: #F5F5F5;
+    border-bottom: 5px solid #333333;
+    float: left;
+    position: relative;
+    width: 100%;
+    margin-bottom: 5%;
+}
+#nav ul.subs {
+    background-color: #FFFFFF;
+    box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.2);
+    color: #333333;
+    display: none;
+    left: 0;
+    padding: 2%;
+    position: absolute;
+    top: 54px;
+    width: 96%;
+}
+#nav > li {
+    border-bottom: 5px solid transparent;
+    float: left;
+    margin-bottom: -5px;
+    text-align: left;
+}
+#nav li a {
+    display: block;
+    text-decoration: none;
+    white-space: normal;
+}
+#nav > li > a {
+    color: #333333;
+    display: block;
+    font-size: 1.3em;
+    line-height: 49px;
+    padding: 0 15px;
+}
+#nav > li:hover > a, #nav > a:hover {
+    color: #777777;
+}
+#nav li.active > a {
+    background-color: #333333;
+    color: #FFFFFF;
+}
+
+/* submenu */
+#nav li:hover ul.subs {
+    display: block;
+}
+#nav ul.subs > li {
+    display: inline-block;
+    float: none;
+    padding: 10px 1%;
+    vertical-align: top;
+    width: 33%;
+}
+#nav ul.subs > li a {
+    color: #777777;
+    line-height: 20px;
+}
+#nav ul li a:hover {
+    color: #F55856;
+}
+#nav ul.subs > li > a {
+    font-size: 1.3em;
+    margin-bottom: 10px;
+}
+#nav ul.subs > li li {
+    float: none;
+    padding-left: 8px;
+    -moz-transition: padding 150ms ease-out 0s;
+    -ms-transition: padding 150ms ease-out 0s;
+    -o-transition: padding 150ms ease-out 0s;
+    -webkit-transition: padding 150ms ease-out 0s;
+    transition: padding 150ms ease-out 0s;
+}
+#nav ul.subs > li li:hover {
+    padding-left: 15px;
+}
+
+/* responsive rules */
+@media all and (max-width : 980px) {
+    #nav > li {
+        float: none;
+        border-bottom: 0;
+        margin-bottom: 0;
+    }
+    #nav ul.subs {
+        position: relative;
+        top: 0;
+    }
+    #nav li:hover ul.subs {
+        display: none;
+    }
+    #nav li #s1:target + ul.subs,
+    #nav li #s2:target + ul.subs {
+        display: block;
+    }
+
+    #nav ul.subs > li {
+        display: block;
+        width: auto;
+    }
+}
 

@@ -2,6 +2,7 @@
 layout: rxflavor
 title: ReactiveX - RxJava
 flavor: RxJava
+repo: https://github.com/Netflix/RxJava
 ---
 
 RxJava is a Java VM implementation of <a href="https://rx.codeplex.com">Reactive Extensions</a>: a library for composing asynchronous and event-based programs by using observable sequences.

@@ -1,7 +1,33 @@
 ---
 layout: default
 ---
-<h1>{{ page.flavor }}</h1>
+<!--h1>{{ page.flavor }}</h1-->
+<div class="container">
+    <ul id="nav">
+        <li><a href="#"><strong>{{ page.flavor }}</strong></a></li>
+        <li><a href="#s1">quickstart</a></li>
+        <li><a href="#s2">documentation</a>
+            <span id="s2"></span>
+            <ul class="subs">
+                <li><a href="#">Header a</a>
+                    <ul>
+                        <li><a href="#">Submenu x</a></li>
+                        <li><a href="#">Submenu y</a></li>
+                        <li><a href="#">Submenu z</a></li>
+                    </ul>
+                </li>
+                <li><a href="#">Header b</a>
+                    <ul>
+                        <li><a href="#">Submenu x</a></li>
+                        <li><a href="#">Submenu y</a></li>
+                        <li><a href="#">Submenu z</a></li>
+                    </ul>
+                </li>
+            </ul>
+        </li>
+        <li><a href="{{ page.repo }}">source</a></li>
+    </ul>
+</div>
 
 <div class="post">
 {{ content }}
