@@ -25,8 +25,8 @@ body {
 h1 { margin-bottom: 1em; }
 p { margin: 1em 0; }
 
-a         { color: #00a; }
-a:hover   { color: #000; }
+a         { color: #00a; text-decoration: none; }
+a:hover   { color: #000; text-decoration: underline; }
 a:visited { color: #a0a; }
 
 /*****************************************************************************/
@@ -345,7 +345,7 @@ pre {
     left: 0;
     padding: 2%;
     position: absolute;
-    top: 54px;
+    top: 50px;
     width: 96%;
 }
 #nav > li {
