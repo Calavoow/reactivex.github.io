@@ -291,7 +291,15 @@ pre {
 }
 
 #tabs li {
-    font-size: 70%;
+    font-size: 75%;
+}
+
+#tabs .ui-state-default {
+    background: #FFF;
+}
+
+#tabs .ui-tabs-active {
+    background: #EEF;
 }
 
 /*****************************************************************************/
@@ -410,7 +418,7 @@ pre {
 }
 
 /* responsive rules */
-@media all and (max-width : 980px) {
+@media all and (max-width : 700px) {
     #nav > li {
         float: none;
         border-bottom: 0;
