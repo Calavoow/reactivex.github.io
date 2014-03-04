@@ -12,39 +12,39 @@
     <canvas id="rxCanvas" width="578" height="400"></canvas>
     <script>
      
-      arrow = function (ctx, fromx, tox, y) {
-        var headlen = 25;   // length of head in pixels
-        ctx.beginPath();
-        ctx.lineWidth = 5;
-        ctx.moveTo(fromx, y);
-        ctx.lineTo(tox, y);
-        ctx.moveTo(tox, y - 0.5*headlen);
-        ctx.lineTo(tox+headlen, y);
-        ctx.lineTo(tox, y + 0.5*headlen);
-        ctx.closePath();
-        ctx.stroke();
-      } 
+        arrow = function (ctx, fromx, tox, y) {
+            var headlen = 25;   // length of head in pixels
+            ctx.beginPath();
+            ctx.lineWidth = 5;
+            ctx.moveTo(fromx, y);
+            ctx.lineTo(tox, y);
+            ctx.moveTo(tox, y - 0.5*headlen);
+            ctx.lineTo(tox+headlen, y);
+            ctx.lineTo(tox, y + 0.5*headlen);
+            ctx.closePath();
+            ctx.stroke();
+        } 
 
-      circle = function (ctx, centerx, centery, radius) {
-        // draw circle
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI, false);
-        ctx.fillStyle = 'green';
-        ctx.fill();
-        ctx.lineWidth = 5;
-        ctx.strokeStyle = '#003300';
-        ctx.stroke();
-      }
+        circle = function (ctx, centerx, centery, radius) {
+            // draw circle
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI, false);
+            ctx.fillStyle = 'green';
+            ctx.fill();
+            ctx.lineWidth = 5;
+            ctx.strokeStyle = '#003300';
+            ctx.stroke();
+        }
 
-      var canvas = document.getElementById('rxCanvas');
-      var ctx = canvas.getContext('2d');
+        var canvas = document.getElementById('rxCanvas');
+        var ctx = canvas.getContext('2d');
 
-      var centerX = canvas.width / 2;
-      var centerY = canvas.height / 2;
-      var radius = 30;
+        var centerX = canvas.width / 2;
+        var centerY = canvas.height / 2;
+        var radius = 30;
 
-      circle (ctx, centerX, centerY, radius);
-      arrow (ctx, 10, 200, 30);
+        circle (ctx, centerX, centerY, radius);
+        arrow (ctx, 10, 200, 30);
 
     </script>
   </body>
