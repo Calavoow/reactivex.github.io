@@ -12,6 +12,8 @@
     <canvas id="rxCanvas" width="578" height="400"></canvas>
     <script>
      
+        var canvas = document.getElementById('rxCanvas');
+
         arrow = function (ctx, fromx, tox, y) {
             var headlen = 25;   // length of head in pixels
             ctx.beginPath();
@@ -28,7 +30,7 @@
         circle = function (ctx, centerx, centery, radius) {
             // draw circle
             ctx.beginPath();
-            ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI, false);
+            ctx.arc(centerx, centery, radius, 0, 2 * Math.PI, false);
             ctx.fillStyle = 'green';
             ctx.fill();
             ctx.lineWidth = 5;
@@ -36,15 +38,35 @@
             ctx.stroke();
         }
 
-        var canvas = document.getElementById('rxCanvas');
-        var ctx = canvas.getContext('2d');
+        render = function (canvas, evt) {
+            var ctx = canvas.getContext('2d');
+            var mousePos = getMousePos(canvas, evt);
+            var message = 'Mouse position: ' + mousePos.x + ',' + mousePos.y;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.font = '18pt Calibri';
+            ctx.fillStyle = 'black';
+            ctx.fillText(message, 10, 25);
 
-        var centerX = canvas.width / 2;
-        var centerY = canvas.height / 2;
-        var radius = 30;
+            //var centerX = canvas.width / 2;
+            //var centerY = canvas.height / 2;
+            var radius = 30;
+            var y = canvas.height / 2;
+            arrow (ctx, 10, 200, y);
+            circle (ctx, mousePos.x, y, radius);
+        }
 
-        circle (ctx, centerX, centerY, radius);
-        arrow (ctx, 10, 200, 30);
+        getMousePos = function (canvas, evt) {
+            var rect = canvas.getBoundingClientRect();
+            return evt != null ? { x: evt.clientX - rect.left,
+                                   y: evt.clientY - rect.top } 
+                               : { x: 0, y: 0};
+        }
+        
+        canvas.addEventListener('mousemove', function(evt) {
+            render (canvas, evt);
+        }, false);
+
+        render (canvas, null);
 
     </script>
   </body>
