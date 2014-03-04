@@ -9,10 +9,10 @@
     </style>
   </head>
   <body>
-    <canvas id="rxCanvas" width="578" height="200"></canvas>
+    <canvas id="rxCanvas" width="578" height="400"></canvas>
     <script>
      
-      function canvas_arrow(ctx, fromx, tox, y){
+      arrow = function (ctx, fromx, tox, y) {
         var headlen = 25;   // length of head in pixels
         ctx.beginPath();
         ctx.lineWidth = 5;
@@ -25,24 +25,27 @@
         ctx.stroke();
       } 
 
+      circle = function (ctx, centerx, centery, radius) {
+        // draw circle
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI, false);
+        ctx.fillStyle = 'green';
+        ctx.fill();
+        ctx.lineWidth = 5;
+        ctx.strokeStyle = '#003300';
+        ctx.stroke();
+      }
+
       var canvas = document.getElementById('rxCanvas');
       var ctx = canvas.getContext('2d');
+
       var centerX = canvas.width / 2;
       var centerY = canvas.height / 2;
       var radius = 30;
 
-      // draw arrow
-      canvas_arrow(ctx, 10, 200, 30);
+      circle (ctx, centerX, centerY, radius);
+      arrow (ctx, 10, 200, 30);
 
-      // draw circle
-      ctx.beginPath();
-      ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI, false);
-      ctx.fillStyle = 'green';
-      ctx.fill();
-      ctx.lineWidth = 5;
-      ctx.strokeStyle = '#003300';
-      ctx.stroke();
-    
     </script>
   </body>
 </html>
