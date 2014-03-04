@@ -27,23 +27,23 @@
             ctx.stroke();
         } 
 
-        draw_circle = function (ctx, centerx, centery) {
-            circle (ctx, centerx, centery, function(ctx) { 
+        draw_circle = function (ctx, centerx, centery, color) {
+            circle (ctx, centerx, centery, color, function(ctx) { 
                 ctx.stroke(); 
             });
         }
 
-        fill_circle = function (ctx, centerx, centery) {
-            circle (ctx, centerx, centery, function(ctx) { 
+        fill_circle = function (ctx, centerx, centery, color) {
+            circle (ctx, centerx, centery, color, function(ctx) { 
                 ctx.fill(); 
             });
         }
 
-        circle = function (ctx, centerx, centery, drawFunc) {
+        circle = function (ctx, centerx, centery, color, drawFunc) {
             var radius = 25;
             ctx.beginPath();
             ctx.arc(centerx, centery, radius, 0, 2 * Math.PI, false);
-            ctx.fillStyle = 'green';
+            ctx.fillStyle = color;
             drawFunc(ctx);
             ctx.lineWidth = 5;
             ctx.strokeStyle = '#003300';
@@ -53,17 +53,20 @@
         draw_stream = function (ctx, stream) {
             draw_arrow (ctx, 10, canvas.width - 35, stream.y);
             for (var i in stream.events) {
-                fill_circle (ctx, stream.events[i], stream.y);
+                fill_circle (ctx, stream.events[i].x, stream.y, stream.events[i].color);
             }
+        }
+
+        randomColor = function() {
+            return '#'+(Math.random()*0xFFFFFF<<0).toString(16);
         }
 
         stream = {
             y: canvas.height / 2,
             events: [
-                60,
-                160,
-                305,
-                400
+                { x: 60, color: 'green' },
+                { x: 160, color: 'red' },
+                { x: 305, color: 'blue' }
                 ],
             end: 90
         }
@@ -78,7 +81,7 @@
             ctx.fillText(message, 10, 25);
 
             draw_stream (ctx, stream);
-            draw_circle (ctx, mousePos.x, stream.y);
+            draw_circle (ctx, mousePos.x, stream.y, 'red');
         }
 
         getMousePos = function (canvas, evt) {
@@ -94,7 +97,7 @@
 
         canvas.addEventListener('mousedown', function(evt) {
             var mousePos = getMousePos(canvas, evt); 
-            stream.events.push(mousePos.x);
+            stream.events.push({ x: mousePos.x, color: randomColor() });
             render (canvas, evt);
         }, false);
 
