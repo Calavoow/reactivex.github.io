@@ -11,19 +11,38 @@
   <body>
     <canvas id="rxCanvas" width="578" height="200"></canvas>
     <script>
+     
+      function canvas_arrow(ctx, fromx, tox, y){
+        var headlen = 25;   // length of head in pixels
+        ctx.beginPath();
+        ctx.lineWidth = 5;
+        ctx.moveTo(fromx, y);
+        ctx.lineTo(tox, y);
+        ctx.moveTo(tox, y - 0.5*headlen);
+        ctx.lineTo(tox+headlen, y);
+        ctx.lineTo(tox, y + 0.5*headlen);
+        ctx.closePath();
+        ctx.stroke();
+      } 
+
       var canvas = document.getElementById('rxCanvas');
-      var context = canvas.getContext('2d');
+      var ctx = canvas.getContext('2d');
       var centerX = canvas.width / 2;
       var centerY = canvas.height / 2;
-      var radius = 70;
+      var radius = 30;
 
-      context.beginPath();
-      context.arc(centerX, centerY, radius, 0, 2 * Math.PI, false);
-      context.fillStyle = 'green';
-      context.fill();
-      context.lineWidth = 5;
-      context.strokeStyle = '#003300';
-      context.stroke();
+      // draw arrow
+      canvas_arrow(ctx, 10, 200, 30);
+
+      // draw circle
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI, false);
+      ctx.fillStyle = 'green';
+      ctx.fill();
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = '#003300';
+      ctx.stroke();
+    
     </script>
   </body>
 </html>
