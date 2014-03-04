@@ -18,6 +18,7 @@
             var headlen = 25;
             ctx.beginPath();
             ctx.lineWidth = 5;
+            ctx.strokeStyle = '#000000';
             ctx.moveTo(fromx, y);
             ctx.lineTo(tox, y);
             ctx.moveTo(tox, y - 0.5*headlen);
@@ -55,6 +56,13 @@
             for (var i in stream.events) {
                 fill_circle (ctx, stream.events[i].x, stream.y, stream.events[i].color);
             }
+
+            ctx.beginPath();
+            ctx.lineWith = 5;
+            ctx.strokeStyle = '#000000';
+            ctx.moveTo(stream.end, stream.y - 25);
+            ctx.lineTo(stream.end, stream.y + 25);
+            ctx.stroke();
         }
 
         randomColor = function() {
@@ -68,7 +76,7 @@
                 { x: 160, color: 'red' },
                 { x: 305, color: 'blue' }
                 ],
-            end: 90
+            end: 450
         }
 
         render = function (canvas, evt) {
