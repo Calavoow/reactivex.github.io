@@ -9,13 +9,13 @@
     </style>
   </head>
   <body>
-    <canvas id="rxCanvas" width="578" height="400"></canvas>
+    <canvas id="rxCanvas" width="578" height="400" style="border: 1px solid #000000; margin: 10px;"></canvas>
     <script>
      
         var canvas = document.getElementById('rxCanvas');
 
-        arrow = function (ctx, fromx, tox, y) {
-            var headlen = 25;   // length of head in pixels
+        draw_arrow = function (ctx, fromx, tox, y) {
+            var headlen = 25;
             ctx.beginPath();
             ctx.lineWidth = 5;
             ctx.moveTo(fromx, y);
@@ -27,15 +27,45 @@
             ctx.stroke();
         } 
 
-        circle = function (ctx, centerx, centery, radius) {
-            // draw circle
+        draw_circle = function (ctx, centerx, centery) {
+            circle (ctx, centerx, centery, function(ctx) { 
+                ctx.stroke(); 
+            });
+        }
+
+        fill_circle = function (ctx, centerx, centery) {
+            circle (ctx, centerx, centery, function(ctx) { 
+                ctx.fill(); 
+            });
+        }
+
+        circle = function (ctx, centerx, centery, drawFunc) {
+            var radius = 25;
             ctx.beginPath();
             ctx.arc(centerx, centery, radius, 0, 2 * Math.PI, false);
             ctx.fillStyle = 'green';
-            ctx.fill();
+            drawFunc(ctx);
             ctx.lineWidth = 5;
             ctx.strokeStyle = '#003300';
             ctx.stroke();
+        }
+
+        draw_stream = function (ctx, stream) {
+            draw_arrow (ctx, 10, canvas.width - 35, stream.y);
+            for (var i in stream.events) {
+                fill_circle (ctx, stream.events[i], stream.y);
+            }
+        }
+
+        stream = {
+            y: canvas.height / 2,
+            events: [
+                60,
+                160,
+                305,
+                400
+                ],
+            end: 90
         }
 
         render = function (canvas, evt) {
@@ -47,12 +77,8 @@
             ctx.fillStyle = 'black';
             ctx.fillText(message, 10, 25);
 
-            //var centerX = canvas.width / 2;
-            //var centerY = canvas.height / 2;
-            var radius = 30;
-            var y = canvas.height / 2;
-            arrow (ctx, 10, 200, y);
-            circle (ctx, mousePos.x, y, radius);
+            draw_stream (ctx, stream);
+            draw_circle (ctx, mousePos.x, stream.y);
         }
 
         getMousePos = function (canvas, evt) {
@@ -63,6 +89,12 @@
         }
         
         canvas.addEventListener('mousemove', function(evt) {
+            render (canvas, evt);
+        }, false);
+
+        canvas.addEventListener('mousedown', function(evt) {
+            var mousePos = getMousePos(canvas, evt); 
+            stream.events.push(mousePos.x);
             render (canvas, evt);
         }, false);
 
