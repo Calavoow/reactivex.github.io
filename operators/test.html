@@ -19,13 +19,13 @@
         var streams = [
             {
                 shape: "circle",
-                y: canvas.height / 3,
+                y: canvas.height / 8,
                 events: [],
                 end: 450
             },
             {
                 shape: "square",
-                y: canvas.height / 3 * 2,
+                y: canvas.height / 8 * 3,
                 events: [],
                 end: 470
             }
@@ -120,11 +120,11 @@
 
         render = function (canvas, mousePos) {
             var ctx = canvas.getContext('2d');
-            var message = mousePos.x + ',' + mousePos.y;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+            /*var message = mousePos.x + ',' + mousePos.y;
             ctx.font = '18pt Calibri';
             ctx.fillStyle = 'black';
-            ctx.fillText(message, 10, 25);
+            ctx.fillText(message, 10, 25);*/
 
             for (var i in streams) {
                 draw_stream (ctx, streams[i]);
@@ -196,6 +196,12 @@
                                     : currStream.events.push({ x: mousePos.x, color: randomColor() });
                 render (canvas, mousePos);
             }
+        }, false);
+
+
+        canvas.addEventListener ("mouseout", function(evt) { 
+            var mousePos = { x:-1337, y:-1337 };
+            render (canvas, mousePos);
         }, false);
 
         render (canvas, getMousePos(canvas, null));
