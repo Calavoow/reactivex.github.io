@@ -40,6 +40,15 @@
             });
         }
 
+        draw_line = function (ctx, fromx, fromy, tox, toy, color) {
+            ctx.beginPath();
+            ctx.lineWith = 5;
+            ctx.strokeStyle = color;
+            ctx.moveTo(fromx, fromy);
+            ctx.lineTo(tox, toy);
+            ctx.stroke();
+        }
+
         circle = function (ctx, centerx, centery, color, drawFunc) {
             var radius = 25;
             ctx.beginPath();
@@ -56,40 +65,56 @@
             for (var i in stream.events) {
                 fill_circle (ctx, stream.events[i].x, stream.y, stream.events[i].color);
             }
-
-            ctx.beginPath();
-            ctx.lineWith = 5;
-            ctx.strokeStyle = '#000000';
-            ctx.moveTo(stream.end, stream.y - 25);
-            ctx.lineTo(stream.end, stream.y + 25);
-            ctx.stroke();
+            draw_line(ctx, stream.end, stream.y - 25, stream.end, stream.y + 25, '#000000');
         }
 
         randomColor = function() {
             return '#'+(Math.random()*0xFFFFFF<<0).toString(16);
         }
 
-        stream = {
-            y: canvas.height / 2,
-            events: [
-                { x: 60, color: 'green' },
-                { x: 160, color: 'red' },
-                { x: 305, color: 'blue' }
-                ],
-            end: 450
-        }
+        var streams = [
+            {
+                y: canvas.height / 3,
+                events: [],
+                end: 450
+            },
+            {
+                y: canvas.height / 3 * 2,
+                events: [],
+                end: 470
+            }
+        ];
 
-        render = function (canvas, evt) {
+        var currStream = streams[0];
+
+        render = function (canvas, mousePos) {
             var ctx = canvas.getContext('2d');
-            var mousePos = getMousePos(canvas, evt);
-            var message = 'Mouse position: ' + mousePos.x + ',' + mousePos.y;
+            var message = mousePos.x + ',' + mousePos.y;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.font = '18pt Calibri';
             ctx.fillStyle = 'black';
             ctx.fillText(message, 10, 25);
 
-            draw_stream (ctx, stream);
-            draw_circle (ctx, mousePos.x, stream.y, 'red');
+            for (var i in streams) {
+                var stream = streams[i];
+                draw_stream (ctx, stream);
+            }
+
+            draw_circle (ctx, mousePos.x, currStream.y, 'red');
+        }
+
+        getCurrentStream = function (mousePos) {
+            var minDistance = Number.POSITIVE_INFINITY;
+            var selectedStream = currStream;
+            for (var i in streams) {
+                var stream = streams[i];
+                var distance = Math.abs(stream.y - mousePos.y);
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    selectedStream = stream;
+                }
+            }
+            return selectedStream;
         }
 
         getMousePos = function (canvas, evt) {
@@ -100,16 +125,18 @@
         }
         
         canvas.addEventListener('mousemove', function(evt) {
-            render (canvas, evt);
+            var mousePos = getMousePos(canvas, evt); 
+            currStream = getCurrentStream(mousePos);
+            render (canvas, mousePos);
         }, false);
 
         canvas.addEventListener('mousedown', function(evt) {
             var mousePos = getMousePos(canvas, evt); 
-            stream.events.push({ x: mousePos.x, color: randomColor() });
+            currStream.events.push({ x: mousePos.x, color: randomColor() });
             render (canvas, evt);
         }, false);
 
-        render (canvas, null);
+        render (canvas, getMousePos(canvas, null));
 
     </script>
   </body>
