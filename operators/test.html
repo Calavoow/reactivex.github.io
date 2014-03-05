@@ -126,17 +126,18 @@
             ctx.fillText(message, 10, 25);
 
             for (var i in streams) {
-                var stream = streams[i];
-                draw_stream (ctx, stream);
+                draw_stream (ctx, streams[i]);
             }
 
-            switch (currStream.shape) {
-                case "circle":
-                    draw_circle (ctx, mousePos.x, currStream.y, 'red');
-                    break;
-                case "square":
-                    draw_square (ctx, mousePos.x, currStream.y, 'red');
-                    break;
+            if (Math.abs(mousePos.y - currStream.y) < 2*eventRadius) {
+                switch (currStream.shape) {
+                    case "circle":
+                        draw_circle (ctx, mousePos.x, currStream.y, 'red');
+                        break;
+                    case "square":
+                        draw_square (ctx, mousePos.x, currStream.y, 'red');
+                        break;
+                }
             }
         }
 
