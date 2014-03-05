@@ -170,8 +170,10 @@
 
         canvas.addEventListener('mousedown', function(evt) {
             var mousePos = getMousePos(canvas, evt); 
-            currStream.events.push({ x: mousePos.x, color: randomColor() });
-            render (canvas, evt);
+            if (Math.abs(mousePos.y - currStream.y) < 2*eventRadius) {
+                currStream.events.push({ x: mousePos.x, color: randomColor() });
+                render (canvas, mousePos);
+            }
         }, false);
 
         render (canvas, getMousePos(canvas, null));
