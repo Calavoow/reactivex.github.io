@@ -14,6 +14,34 @@
      
         var canvas = document.getElementById('rxCanvas');
 
+        var eventRadius = 25;
+
+        var streams = [
+            {
+                shape: "circle",
+                y: canvas.height / 3,
+                events: [],
+                end: 450
+            },
+            {
+                shape: "square",
+                y: canvas.height / 3 * 2,
+                events: [],
+                end: 470
+            }
+        ];
+
+        var currStream = streams[0];
+
+        draw_line = function (ctx, fromx, fromy, tox, toy, color) {
+            ctx.beginPath();
+            ctx.lineWith = 5;
+            ctx.strokeStyle = color;
+            ctx.moveTo(fromx, fromy);
+            ctx.lineTo(tox, toy);
+            ctx.stroke();
+        }
+
         draw_arrow = function (ctx, fromx, tox, y) {
             var headlen = 25;
             ctx.beginPath();
@@ -40,21 +68,43 @@
             });
         }
 
-        draw_line = function (ctx, fromx, fromy, tox, toy, color) {
-            ctx.beginPath();
-            ctx.lineWith = 5;
-            ctx.strokeStyle = color;
-            ctx.moveTo(fromx, fromy);
-            ctx.lineTo(tox, toy);
-            ctx.stroke();
-        }
-
         circle = function (ctx, centerx, centery, color, drawFunc) {
-            var radius = 25;
             ctx.beginPath();
-            ctx.arc(centerx, centery, radius, 0, 2 * Math.PI, false);
+            ctx.arc(centerx, centery, eventRadius, 0, 2 * Math.PI, false);
             ctx.fillStyle = color;
             drawFunc(ctx);
+            ctx.lineWidth = 5;
+            ctx.strokeStyle = '#003300';
+            ctx.stroke();
+        }
+    
+        draw_square = function (ctx, centerx, centery, color) {
+            /*ctx.beginPath();
+            ctx.rect(centerx-eventRadius, centery-eventRadius, 2*eventRadius, 2*eventRadius);
+            ctx.lineWidth = 5;
+            ctx.strokeStyle = '#003300';
+            ctx.stroke();*/
+            square (ctx, centerx, centery, color, false);
+        }
+
+        fill_square = function (ctx, centerx, centery, color) {
+            /*ctx.beginPath();
+            ctx.rect(centerx-eventRadius, centery-eventRadius, 2*eventRadius, 2*eventRadius);
+            ctx.fillStyle = color;
+            ctx.fill();
+            ctx.lineWidth = 5;
+            ctx.strokeStyle = '#003300';
+            ctx.stroke();*/
+            square (ctx, centerx, centery, color, true);
+        }
+
+        square = function (ctx, centerx, centery, color, doFill) {
+            ctx.beginPath();
+            ctx.rect(centerx-eventRadius, centery-eventRadius, 2*eventRadius, 2*eventRadius);
+            if (doFill) {
+                ctx.fillStyle = color;
+                ctx.fill();
+            }
             ctx.lineWidth = 5;
             ctx.strokeStyle = '#003300';
             ctx.stroke();
@@ -63,29 +113,21 @@
         draw_stream = function (ctx, stream) {
             draw_arrow (ctx, 10, canvas.width - 35, stream.y);
             for (var i in stream.events) {
-                fill_circle (ctx, stream.events[i].x, stream.y, stream.events[i].color);
+                switch (stream.shape) {
+                    case "circle":
+                        fill_circle (ctx, stream.events[i].x, stream.y, stream.events[i].color);
+                        break;
+                    case "square":
+                        fill_square (ctx, stream.events[i].x, stream.y, stream.events[i].color);
+                        break;
+                }
             }
-            draw_line(ctx, stream.end, stream.y - 25, stream.end, stream.y + 25, '#000000');
+            draw_line(ctx, stream.end, stream.y - eventRadius, stream.end, stream.y + eventRadius, '#000000');
         }
 
         randomColor = function() {
             return '#'+(Math.random()*0xFFFFFF<<0).toString(16);
         }
-
-        var streams = [
-            {
-                y: canvas.height / 3,
-                events: [],
-                end: 450
-            },
-            {
-                y: canvas.height / 3 * 2,
-                events: [],
-                end: 470
-            }
-        ];
-
-        var currStream = streams[0];
 
         render = function (canvas, mousePos) {
             var ctx = canvas.getContext('2d');
@@ -100,7 +142,14 @@
                 draw_stream (ctx, stream);
             }
 
-            draw_circle (ctx, mousePos.x, currStream.y, 'red');
+            switch (currStream.shape) {
+                case "circle":
+                    draw_circle (ctx, mousePos.x, currStream.y, 'red');
+                    break;
+                case "square":
+                    draw_square (ctx, mousePos.x, currStream.y, 'red');
+                    break;
+            }
         }
 
         getCurrentStream = function (mousePos) {
