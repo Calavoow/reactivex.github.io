@@ -35,7 +35,7 @@
 
         draw_line = function (ctx, fromx, fromy, tox, toy, color) {
             ctx.beginPath();
-            ctx.lineWith = 5;
+            ctx.lineWith = 3;
             ctx.strokeStyle = color;
             ctx.moveTo(fromx, fromy);
             ctx.lineTo(tox, toy);
@@ -45,7 +45,7 @@
         draw_arrow = function (ctx, fromx, tox, y) {
             var headlen = 25;
             ctx.beginPath();
-            ctx.lineWidth = 5;
+            ctx.lineWidth = 3;
             ctx.strokeStyle = '#000000';
             ctx.moveTo(fromx, y);
             ctx.lineTo(tox, y);
@@ -73,7 +73,7 @@
             ctx.arc(centerx, centery, eventRadius, 0, 2 * Math.PI, false);
             ctx.fillStyle = color;
             drawFunc(ctx);
-            ctx.lineWidth = 5;
+            ctx.lineWidth = 3;
             ctx.strokeStyle = '#003300';
             ctx.stroke();
         }
@@ -93,7 +93,7 @@
                 ctx.fillStyle = color;
                 ctx.fill();
             }
-            ctx.lineWidth = 5;
+            ctx.lineWidth = 3;
             ctx.strokeStyle = '#003300';
             ctx.stroke();
         }
