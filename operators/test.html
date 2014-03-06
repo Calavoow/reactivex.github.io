@@ -166,6 +166,12 @@
             }
             return false;
         }
+
+        addEvent = function (mousePos) {
+            if (mousePos.x + eventRadius < currStream.end ) {
+                currStream.events.push({ x: mousePos.x, color: randomColor() });
+            }
+        }
             
         removeEvent = function (mousePos) {
             for (var i in currStream.events) {
@@ -193,11 +199,10 @@
             var mousePos = getMousePos(canvas, evt); 
             if (Math.abs(mousePos.y - currStream.y) < 2*eventRadius) {
                 isOnEvent(mousePos) ? removeEvent(mousePos) 
-                                    : currStream.events.push({ x: mousePos.x, color: randomColor() });
+                                    : addEvent(mousePos); 
                 render (canvas, mousePos);
             }
         }, false);
-
 
         canvas.addEventListener ("mouseout", function(evt) { 
             var mousePos = { x:-1337, y:-1337 };
