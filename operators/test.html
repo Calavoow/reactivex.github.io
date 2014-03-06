@@ -114,6 +114,20 @@
             draw_line(ctx, stream.end, stream.y - eventRadius, stream.end, stream.y + eventRadius, '#000000');
         }
 
+        draw_cursor = function(ctx, mousePos) {
+            if (Math.abs(mousePos.y - currStream.y) < 2*eventRadius) {
+                var isMarked = isOnEvent(mousePos);
+                switch (currStream.shape) {
+                    case "circle":
+                        draw_circle (ctx, mousePos.x, currStream.y, 'red', isMarked);
+                        break;
+                    case "square":
+                        draw_square (ctx, mousePos.x, currStream.y, 'red', isMarked);
+                        break;
+                }
+            }
+        }
+
         randomColor = function() {
             return '#'+(Math.random()*0xFFFFFF<<0).toString(16);
         }
@@ -127,20 +141,10 @@
             ctx.fillText(message, 10, 25);*/
 
             for (var i in streams) {
-                draw_stream (ctx, streams[i]);
+                draw_stream(ctx, streams[i]);
             }
 
-            if (Math.abs(mousePos.y - currStream.y) < 2*eventRadius) {
-                var isMarked = isOnEvent(mousePos);
-                switch (currStream.shape) {
-                    case "circle":
-                        draw_circle (ctx, mousePos.x, currStream.y, 'red', isMarked);
-                        break;
-                    case "square":
-                        draw_square (ctx, mousePos.x, currStream.y, 'red', isMarked);
-                        break;
-                }
-            }
+            draw_cursor(ctx, mousePos);
         }
 
         getCurrentStream = function (mousePos) {
