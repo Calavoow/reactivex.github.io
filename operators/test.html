@@ -9,7 +9,7 @@
     </style>
   </head>
   <body>
-    <canvas id="rxCanvas" width="578" height="400" style="border: 1px solid #000000; margin: 10px;"></canvas>
+    <canvas id="rxCanvas" width="578" height="420" style="border: 1px solid #000000; margin: 10px;"></canvas>
     <script>
      
         var canvas = document.getElementById('rxCanvas');
@@ -178,6 +178,15 @@
             return color;
         }
 
+        create_result_stream = function() {
+            return {
+                shape: "circle",
+                y: operator_y() + eventRadius * 6,
+                events: [],
+                end: 450
+            };
+        }
+
         render = function (canvas, mousePos) {
             var ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -194,6 +203,7 @@
 
             draw_operator(ctx);
 
+            draw_stream(ctx, create_result_stream());
         }
 
         getCurrentStream = function (mousePos) {
