@@ -14,8 +14,8 @@
      
         var canvas = document.getElementById('rxCanvas');
 
-        var eventRadius = 25;
-        var arrowHeadLen = 25;
+        var eventRadius = 20;
+        var arrowHeadLen = 20;
 
         var streams = [
             {
@@ -193,7 +193,7 @@
                 }
                 out_events = stream.events.concat(out_events);
             }
-            ypos += eventRadius * 8;
+            ypos += eventRadius * 9;
 
             return {
                 shape: "circle",
