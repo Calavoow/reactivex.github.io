@@ -15,6 +15,7 @@
         var canvas = document.getElementById('rxCanvas');
 
         var eventRadius = 25;
+        var arrowHeadLen = 25;
 
         var streams = [
             {
@@ -43,15 +44,33 @@
         }
 
         draw_arrow = function (ctx, fromx, tox, y) {
-            var headlen = 25;
             ctx.beginPath();
             ctx.lineWidth = 3;
             ctx.strokeStyle = '#000000';
             ctx.moveTo(fromx, y);
             ctx.lineTo(tox, y);
-            ctx.moveTo(tox, y - 0.5*headlen);
-            ctx.lineTo(tox+headlen, y);
-            ctx.lineTo(tox, y + 0.5*headlen);
+            ctx.moveTo(tox, y - 0.5*arrowHeadLen);
+            ctx.lineTo(tox+arrowHeadLen, y);
+            ctx.lineTo(tox, y + 0.5*arrowHeadLen);
+            ctx.closePath();
+            ctx.stroke();
+        }
+
+        draw_dashed_arrow = function (ctx, x, fromy, toy) {
+            ctx.beginPath();
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = '#000000';
+            ctx.setLineDash([7]);
+            ctx.moveTo(x, fromy);
+            ctx.lineTo(x, toy);
+            ctx.closePath();
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.setLineDash([]);
+            ctx.moveTo(x - 0.5*arrowHeadLen, toy);
+            ctx.lineTo(x, toy+arrowHeadLen);
+            ctx.lineTo(x + 0.5*arrowHeadLen, toy);
             ctx.closePath();
             ctx.stroke();
         } 
@@ -99,6 +118,7 @@
         }
 
         draw_stream = function (ctx, stream) {
+            var op_y = operator_y() - eventRadius;
             draw_arrow (ctx, 10, canvas.width - 35, stream.y);
             for (var i in stream.events) {
                 var evt = stream.events[i];
@@ -110,6 +130,7 @@
                         fill_square (ctx, evt.x, stream.y, evt.color, false);
                         break;
                 }
+                draw_dashed_arrow(ctx, evt.x, stream.y + eventRadius, op_y);
             }
             draw_line(ctx, stream.end, stream.y - eventRadius, stream.end, stream.y + eventRadius, '#000000');
         }
@@ -172,6 +193,7 @@
             draw_cursor(ctx, mousePos);
 
             draw_operator(ctx);
+
         }
 
         getCurrentStream = function (mousePos) {
