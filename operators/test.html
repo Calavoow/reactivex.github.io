@@ -74,7 +74,7 @@
             ctx.fillStyle = color;
             drawFunc(ctx);
             ctx.lineWidth = 3;
-            ctx.strokeStyle = isMarked ? 'red' : '#003300';
+            ctx.strokeStyle = isMarked ? 'red' : '#000000';
             ctx.stroke();
         }
     
@@ -94,7 +94,7 @@
                 ctx.fill();
             }
             ctx.lineWidth = 3;
-            ctx.strokeStyle = isMarked ? 'red' : '#003300';
+            ctx.strokeStyle = isMarked ? 'red' : '#000000';
             ctx.stroke();
         }
 
@@ -128,6 +128,26 @@
             }
         }
 
+        operator_y = function() {
+            var y = 0;
+            for (var i in streams) {
+                var sy = streams[i].y;
+                if (sy > y) {
+                    y = sy;
+                }
+            }
+            return y + eventRadius * 3;
+        }
+
+        draw_operator = function(ctx) {
+            var y = operator_y();
+            ctx.beginPath();
+            ctx.rect(10, y, canvas.width-20, 2.5*eventRadius);
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = '#000000';
+            ctx.stroke();
+        }
+
         randomColor = function() {
             var letters = '0123456789ABCDEF'.split('');
             var color = '#';
@@ -150,6 +170,8 @@
             }
 
             draw_cursor(ctx, mousePos);
+
+            draw_operator(ctx);
         }
 
         getCurrentStream = function (mousePos) {
