@@ -10,6 +10,7 @@ title: ReactiveX - operators
         <img src="{{ site.url }}/operators/map.png" style="width: 90%;" />
     </center>
   </p>
+  <a href="./test.html">* interactive test</a>
 </div>
 
 

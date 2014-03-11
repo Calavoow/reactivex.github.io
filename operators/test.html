@@ -169,7 +169,7 @@
             ctx.stroke();
         }
 
-        randomColor = function() {
+        random_color = function() {
             var letters = '0123456789ABCDEF'.split('');
             var color = '#';
             for (var i = 0; i < 6; i++ ) {
@@ -222,7 +222,7 @@
 
         addEvent = function (mousePos) {
             if (mousePos.x + eventRadius < currStream.end ) {
-                currStream.events.push({ x: mousePos.x, color: randomColor() });
+                currStream.events.push({ x: mousePos.x, color: random_color() });
             }
         }
             
