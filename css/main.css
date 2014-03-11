@@ -210,9 +210,9 @@ table th {
     border-top:1px solid #fafafa;
     border-bottom:1px solid #e0e0e0;
 
-    background: #ededed;
-    background: -webkit-gradient(linear, left top, left bottom, from(#ededed), to(#ebebeb));
-    background: -moz-linear-gradient(top,  #ededed,  #ebebeb);
+    background: #FFFFFF;
+    background: -webkit-gradient(linear, left top, left bottom, from(#FFFFFF), to(#ececec));
+    background: -moz-linear-gradient(top,  #FFFFFF,  #ececec);
 }
 table th:first-child{
     /*text-align: left;*/
