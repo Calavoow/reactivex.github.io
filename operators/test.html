@@ -191,9 +191,13 @@
                 if (stream.end < endpos) {
                     endpos = stream.end;
                 }
-                out_events = stream.events.concat(out_events);
+                out_events = out_events.concat(stream.events);
             }
             ypos += eventRadius * 9;
+
+            out_events = out_events.filter(function(evt) { 
+                return evt.x + eventRadius < endpos; 
+            });
 
             return {
                 shape: "circle",
