@@ -129,7 +129,12 @@
         }
 
         randomColor = function() {
-            return '#'+(Math.random()*0xFFFFFF<<0).toString(16);
+            var letters = '0123456789ABCDEF'.split('');
+            var color = '#';
+            for (var i = 0; i < 6; i++ ) {
+                color += letters[Math.round(Math.random() * 15)];
+            }
+            return color;
         }
 
         render = function (canvas, mousePos) {
