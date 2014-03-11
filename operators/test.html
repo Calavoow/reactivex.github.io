@@ -122,7 +122,7 @@
             draw_arrow (ctx, 10, canvas.width - 35, stream.y);
             for (var i in stream.events) {
                 var evt = stream.events[i];
-                switch (stream.shape) {
+                switch (evt.shape) {
                     case "circle":
                         fill_circle (ctx, evt.x, stream.y, evt.color, false);
                         break;
@@ -232,7 +232,9 @@
 
         addEvent = function (mousePos) {
             if (mousePos.x + eventRadius < currStream.end ) {
-                currStream.events.push({ x: mousePos.x, color: random_color() });
+                currStream.events.push({ x: mousePos.x
+                                       , color: random_color()
+                                       , shape: currStream.shape });
             }
         }
             
