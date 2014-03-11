@@ -23,6 +23,7 @@ body {
   font-size: 100%; }*/
 
 h1 { margin-bottom: 1em; }
+h2 { margin-top: 1em; }
 p { margin: 1em 0; }
 
 a         { color: #00a; text-decoration: none; }

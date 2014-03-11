@@ -61,7 +61,15 @@ You need Java 6 or later.
 
 The following are RxJava implementations of “Hello World” in Java, Groovy, and Clojure:
 
-In Java =>
+
+<div id="tabs">
+    <ul>
+        <li><a href="#tabs-1">Java</a></li>
+        <li><a href="#tabs-2">Groovy</a></li>
+        <li><a href="#tabs-3">Clojure</a></li>
+    </ul>
+
+    <div id="tabs-1">
 {% highlight java %}
 public static void hello(String... names) {
     Observable.from(names).subscribe(new Action1<String>() {
@@ -74,22 +82,25 @@ public static void hello(String... names) {
     });
 }
 {% endhighlight %}
-
-In Groovy =>
+    </div>
+    <div id="tabs-2">
 {% highlight groovy %} 
 def hello(String[] names) {
     Observable.toObservable(names)
         .subscribe({ println "Hello " + it + "!"})
 }
 {% endhighlight %}
-
-In Clojure =>
+    </div>
+    <div id="tabs-3">
 {% highlight clojure %}
 (defn hello
   [&rest]
   (-> (Observable/toObservable &rest)
     (.subscribe #(println (str "Hello " % "!")))))
 {% endhighlight %}
+    </div>
+</div>
+
 You can find more examples and information in the [[How To Use]] section and in the following source folders:
 
 * [Groovy](https://github.com/Netflix/RxJava/tree/master/language-adaptors/rxjava-groovy/src/examples)
