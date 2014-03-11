@@ -117,7 +117,7 @@
             ctx.stroke();
         }
 
-        draw_stream = function (ctx, stream) {
+        draw_stream = function (ctx, stream, isOutput) {
             var op_y = operator_y() - eventRadius;
             draw_arrow (ctx, 10, canvas.width - 35, stream.y);
             for (var i in stream.events) {
@@ -130,7 +130,8 @@
                         fill_square (ctx, evt.x, stream.y, evt.color, false);
                         break;
                 }
-                draw_dashed_arrow(ctx, evt.x, stream.y + eventRadius, op_y);
+                isOutput ? draw_dashed_arrow(ctx, evt.x, op_y + 3.5*eventRadius, stream.y - 2*eventRadius)
+                         : draw_dashed_arrow(ctx, evt.x, stream.y + eventRadius, op_y);
             }
             draw_line(ctx, stream.end, stream.y - eventRadius, stream.end, stream.y + eventRadius, '#000000');
         }
@@ -178,12 +179,27 @@
             return color;
         }
 
-        create_result_stream = function() {
+        create_output_stream = function() {
+            var ypos = 0;
+            var endpos = Number.POSITIVE_INFINITY;
+            var out_events = [];
+            for (var i in streams) {
+                var stream = streams[i];
+                if (stream.y > ypos) {
+                    ypos = stream.y;
+                }
+                if (stream.end < endpos) {
+                    endpos = stream.end;
+                }
+                out_events = stream.events.concat(out_events);
+            }
+            ypos += eventRadius * 8;
+
             return {
                 shape: "circle",
-                y: operator_y() + eventRadius * 6,
-                events: [],
-                end: 450
+                y: ypos,
+                events: out_events,
+                end: endpos
             };
         }
 
@@ -196,14 +212,14 @@
             ctx.fillText(message, 10, 25);*/
 
             for (var i in streams) {
-                draw_stream(ctx, streams[i]);
+                draw_stream(ctx, streams[i], false);
             }
 
             draw_cursor(ctx, mousePos);
 
             draw_operator(ctx);
 
-            draw_stream(ctx, create_result_stream());
+            draw_stream(ctx, create_output_stream(), true);
         }
 
         getCurrentStream = function (mousePos) {
