@@ -12,7 +12,6 @@
         var canvas = document.getElementById('rxCanvas');
 
         var eventRadius = 20;
-        var arrowHeadLen = 20;
 
         var streams = [
             {
@@ -45,10 +44,10 @@
             ctx.lineWidth = 3;
             ctx.strokeStyle = '#000000';
             ctx.moveTo(fromx, y);
-            ctx.lineTo(tox, y);
-            ctx.moveTo(tox, y - 0.5*arrowHeadLen);
-            ctx.lineTo(tox+arrowHeadLen, y);
-            ctx.lineTo(tox, y + 0.5*arrowHeadLen);
+            ctx.lineTo(tox-eventRadius, y);
+            ctx.moveTo(tox-eventRadius, y - 0.5*eventRadius);
+            ctx.lineTo(tox            , y);
+            ctx.lineTo(tox-eventRadius, y + 0.5*eventRadius);
             ctx.closePath();
             ctx.stroke();
         }
@@ -57,17 +56,17 @@
             ctx.beginPath();
             ctx.lineWidth = 3;
             ctx.strokeStyle = '#000000';
-            ctx.setLineDash([7]);
+            ctx.setLineDash([4, 7]);
             ctx.moveTo(x, fromy);
-            ctx.lineTo(x, toy);
+            ctx.lineTo(x, toy-eventRadius);
             ctx.closePath();
             ctx.stroke();
 
             ctx.beginPath();
             ctx.setLineDash([]);
-            ctx.moveTo(x - 0.5*arrowHeadLen, toy);
-            ctx.lineTo(x, toy+arrowHeadLen);
-            ctx.lineTo(x + 0.5*arrowHeadLen, toy);
+            ctx.moveTo(x - 0.5*eventRadius, toy-eventRadius);
+            ctx.lineTo(x                  , toy);
+            ctx.lineTo(x + 0.5*eventRadius, toy-eventRadius);
             ctx.closePath();
             ctx.stroke();
         } 
@@ -115,7 +114,7 @@
         }
 
         draw_stream = function (ctx, stream, isOutput) {
-            var op_y = operator_y() - eventRadius;
+            var op_y = operator_y();
             draw_arrow (ctx, 10, canvas.width - 35, stream.y);
             for (var i in stream.events) {
                 var evt = stream.events[i];
@@ -127,7 +126,7 @@
                         fill_square (ctx, evt.x, stream.y, evt.color, false);
                         break;
                 }
-                isOutput ? draw_dashed_arrow(ctx, evt.x, op_y + 3.5*eventRadius, stream.y - 2*eventRadius)
+                isOutput ? draw_dashed_arrow(ctx, evt.x, op_y + 2.5*eventRadius, stream.y - eventRadius)
                          : draw_dashed_arrow(ctx, evt.x, stream.y + eventRadius, op_y);
             }
             draw_line(ctx, stream.end, stream.y - eventRadius, stream.end, stream.y + eventRadius, '#000000');
