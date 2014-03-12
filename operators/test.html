@@ -176,62 +176,64 @@
             return color;
         }
 
-        create_output_stream = function() {
+        output_stream_y = function() {
             var ypos = 0;
-            var endpos = Number.POSITIVE_INFINITY;
-            var out_events = [];
             for (var i in streams) {
                 var stream = streams[i];
                 if (stream.y > ypos) {
                     ypos = stream.y;
                 }
-                if (stream.end < endpos) {
-                    endpos = stream.end;
-                }
-                out_events = out_events.concat(stream.events);
             }
-            ypos += eventRadius * 9;
+            return ypos + eventRadius * 9;
+        }
 
-            out_events = out_events.filter(function(evt) { 
-                return evt.x + eventRadius < endpos; 
-            });
-            
-            ///////////////////////////////////////////////
-
-            var onNext = Rx.ReactiveTest.onNext,
-                onCompleted = Rx.ReactiveTest.onCompleted;
-
+        create_output_stream = function() {
             var scheduler = new Rx.TestScheduler();
 
-            var events = [];
-            for (var i = 0; i < out_events.length; i++) {
-                events.push(onNext(out_events[i].x, i));
-            }
-            events.push(onCompleted(endpos));
-    
-            var xs = scheduler.createColdObservable(events);
+            var xs = stream_to_observable(streams[0], scheduler);
+            var ys = stream_to_observable(streams[1], scheduler);
+            
+            var output_stream = {
+                shape: "unknown",
+                y: output_stream_y(),
+                events: [],
+                end: 0
+            };
 
-            xs.subscribe(
-                function(x) {
-                    console.log("[OK] " + x + " " + scheduler.now());
+            xs.merge(ys).subscribe(
+                function(evt) {
+                    //console.log("[OK] " + evt + " " + scheduler.now());
+                    output_stream.events.push(evt);
                 },
                 function(err) {
-                    console.log("[ERROR] " + err);
+                    //console.log("[ERROR] " + err);
+                },
+                function() {
+                    //console.log("[DONE] " + scheduler.now());
+                    output_stream.end = scheduler.now();
                 }
             );
 
             scheduler.start();
 
-            /////////////////////////////////////////////////
-
-            return {
-                shape: "circle",
-                y: ypos,
-                events: out_events,
-                end: endpos
-            };
+            return output_stream;
         }
         
+        stream_to_observable = function(stream, scheduler) {
+            var onNext = Rx.ReactiveTest.onNext,
+                onCompleted = Rx.ReactiveTest.onCompleted;
+
+            var events = [];
+            for (var i = 0; i < stream.events.length; i++) {
+                var evt = stream.events[i];
+                if (evt != null && evt != undefined) {
+                    events.push(onNext(evt.x, evt));
+                }
+            }
+            events.push(onCompleted(stream.end));
+    
+            return scheduler.createColdObservable(events);
+        }
 
         render = function (canvas, mousePos) {
             var ctx = canvas.getContext('2d');
