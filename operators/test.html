@@ -1,12 +1,9 @@
 <!DOCTYPE HTML>
 <html>
   <head>
-    <style>
-      body {
-        margin: 0px;
-        padding: 0px;
-      }
-    </style>
+    <script src="../js/rx/rx.js"></script>
+    <script src="../js/rx/rx.virtualtime.js"></script>
+    <script src="../js/rx/rx.testing.js"></script>
   </head>
   <body>
     <canvas id="rxCanvas" width="578" height="420" style="border: 1px solid #000000; margin: 10px;"></canvas>
@@ -297,5 +294,63 @@
         render (canvas, getMousePos(canvas, null));
 
     </script>
+
+    <script>
+        /* Comparer required for scheduling priority */
+        function comparer (x, y) {
+            if (x > y) { return 1; }
+            if (x < y) { return -1; }
+            return 0;
+        }
+
+        var scheduler = new Rx.VirtualTimeScheduler(0, comparer);
+
+        /**
+        * Adds a relative time value to an absolute time value.
+        * @param {Any} absolute Absolute virtual time value.
+        * @param {Any} relative Relative virtual time value to add.
+        * @return {Any} Resulting absolute virtual time sum value.
+        */
+        scheduler.add = function (absolute, relative) {
+            return absolute + relative;
+        };
+
+        /**
+        * Converts an absolute time to a number 
+        * @param {Number} The absolute time in ms
+        * @returns {Number} The absolute time in ms
+        */
+        scheduler.toDateTimeOffset = function (absolute) {
+            return new Date(absolute).getTime();
+        };
+
+        /**
+        * Converts the time span number/Date to a relative virtual time value.       
+        * @param {Number} timeSpan TimeSpan value to convert.
+        * @return {Number} Corresponding relative virtual time value.
+        */
+        scheduler.toRelative = function (timeSpan) {
+            return timeSpan;
+        };
+
+        // Schedule some time
+        scheduler.scheduleAbsolute(1, function () { console.log('foo'); });
+        scheduler.scheduleAbsolute(2, function () { console.log('bar'); });
+        scheduler.scheduleAbsolute(3, function () { scheduler.stop(); });
+
+        // Start the scheduler
+        scheduler.start();
+
+        // => foo
+        // => bar
+
+        // Check the clock once stopped
+        console.log(scheduler.now());
+        // => 3
+
+        console.log(scheduler.clock);
+        // => 3
+    </script>
+    
   </body>
 </html>
