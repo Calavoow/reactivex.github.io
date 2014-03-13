@@ -93,24 +93,32 @@ RxJava provides a collection of operators with which you can filter, select, tra
 
 You can think of the Observable class as a “push” equivalent to <a href="http://docs.oracle.com/javase/7/docs/api/java/lang/Iterable.html">Iterable</a>, which is a “pull.” With an Iterable, the consumer pulls values from the producer and the thread blocks until those values arrive. By contrast, with an Observable the producer pushes values to the consumer whenever values are available. This approach is more flexible, because values can arrive synchronously or asynchronously.
 
-<center><table>
+<table>
  <thead>
   <tr><th colspan="2">Example code showing how similar high-order functions can be applied to an Iterable and an Observable</th></tr>
   <tr><th>Iterable</th><th>Observable</th></tr>
  </thead>
  <tbody>
-  <tr><td><pre><code>getDataFromLocalMemory()
+  <tr><td>
+{% highlight java %}
+getDataFromLocalMemory()
   .skip(10)
   .take(5)
   .map({ s -> return s + " transformed" })
-  .forEach({ println "next => " + it })</code></pre></td>
-  <td><pre><code>getDataFromNetwork()
+  .forEach({ println "next => " + it })
+{% endhighlight %} 
+  </td>
+  <td>
+{% highlight java %}
+getDataFromNetwork()
   .skip(10)
   .take(5)
   .map({ s -> return s + " transformed" })
-  .subscribe({ println "onNext => " + it })</code></pre></td></tr>
+  .subscribe({ println "onNext => " + it })
+{% endhighlight %} 
+  </td></tr>
  </tbody>
-</table></center>
+</table>
 
 The Observable type adds two missing semantics to the Gang of Four’s <a href="http://en.wikipedia.org/wiki/Observer_pattern">Observer pattern</a>, to match those that are available in the Iterable type:  
 
