@@ -128,25 +128,10 @@ a:visited { color: #a0a; }
 /*
 /*****************************************************************************/
 
-/* standard */
-.post pre {
-  border: 1px solid #ddd;
-  background-color: #eef;
-  padding: 0 .4em;
-}
+
 
 .post ul, .post ol {
   margin-left: 1.35em;
-}
-
-.post code {
-  border: 1px solid #ddd;
-  background-color: #eef;
-  padding: 0 .2em;
-}
-
-.post pre code {
-  border: none;
 }
 
 /* terminal */
@@ -249,7 +234,8 @@ pre {
 }
 
 #tabs .ui-tabs-active {
-    background: #EEF;
+    background: #f8f8f8;
+    font-weight: bold;
 }
 
 /*****************************************************************************/
@@ -257,10 +243,55 @@ pre {
 /* Code
 /*
 /*****************************************************************************/
-.post pre {}
+
+code {
+  border: 1px solid #ddd;
+  padding: 0 .2em;
+}
+
+code, tt {
+    margin: 0 2px;
+    padding: 0 5px;
+    white-space: nowrap;
+    border: 1px solid #eaeaea;
+    background-color: #f8f8f8;
+    border-radius: 3px; 
+}
+
+pre code {
+    margin: 0;
+    padding: 0;
+    white-space: pre;
+    border: none;
+    background: transparent;
+}
 
 .highlight pre {
+    background-color: #f8f8f8;
+    border: 1px solid #cccccc;
+    font-size: 13px;
+    line-height: 19px;
     overflow: auto;
+    padding: 6px 10px;
+    border-radius: 3px;
+}
+
+pre {
+    background-color: #f8f8f8;
+    border: 1px solid #cccccc;
+    font-size: 13px;
+    line-height: 19px;
+    overflow: auto;
+    padding: 6px 10px;
+    border-radius: 3px;
+    overflow: auto;
+    border: 1px solid #ddd;
+    padding: 0 .4em;
+}
+
+pre tt {
+    background-color: transparent;
+    border: none; 
 }
 
 /*****************************************************************************/
