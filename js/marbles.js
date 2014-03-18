@@ -44,7 +44,7 @@ window.onload = function() {
 
     canvas.addEventListener('mousedown', function(evt) {
         var mousePos = getMousePos(canvas, evt); 
-        if (Math.abs(mousePos.y - currStream.y) < 2*eventRadius) {
+        if (diff(mousePos.y, currStream.y) < 2*eventRadius) {
             isOnEvent(mousePos) ? removeEvent(mousePos) 
                                 : addEvent(mousePos); 
             render (canvas, mousePos);
@@ -124,6 +124,8 @@ render = function (canvas, mousePos) {
         draw_stream(ctx, streams[i], false);
     }
 
+    set_pointer(mousePos);
+
     draw_cursor(ctx, mousePos);
 
     draw_operator(ctx, canvas);
@@ -142,12 +144,11 @@ addEvent = function (mousePos) {
 removeEvent = function (mousePos) {
     for (var i in currStream.events) {
         var evt = currStream.events[i];
-        if (Math.abs(evt.x - mousePos.x) < 2*eventRadius) {
+        if (diff(evt.x, mousePos.x) < 2*eventRadius) {
             delete currStream.events[i];
         }
     }
 }
-
 
 /****************/
 /*** GRAPHICS ***/
@@ -173,7 +174,7 @@ draw_stream = function (ctx, stream, isOutput) {
 }
 
 draw_cursor = function(ctx, mousePos) {
-    if (Math.abs(mousePos.y - currStream.y) < 2*eventRadius) {
+    if (is_on_stream(mousePos)) {
         var isMarked = isOnEvent(mousePos);
         switch (currStream.shape) {
             case "circle":
@@ -193,6 +194,11 @@ draw_operator = function(ctx) {
     ctx.lineWidth = 3;
     ctx.strokeStyle = '#000000';
     ctx.stroke();
+}
+
+set_pointer = function (mousePos) {
+    document.body.style.cursor = is_on_stream(mousePos) && diff(mousePos.x, currStream.end) < 5
+                               ? "ew-resize" : "auto";
 }
 
 /****************************/
@@ -291,7 +297,7 @@ getCurrentStream = function (mousePos) {
     var selectedStream = currStream;
     for (var i in streams) {
         var stream = streams[i];
-        var distance = Math.abs(stream.y - mousePos.y);
+        var distance = diff(stream.y, mousePos.y);
         if (distance < minDistance) {
             minDistance = distance;
             selectedStream = stream;
@@ -300,10 +306,18 @@ getCurrentStream = function (mousePos) {
     return selectedStream;
 }
 
+is_on_stream = function (mousePos) {
+    return diff(mousePos.y, currStream.y) < 2*eventRadius;
+}
+
+diff = function (a, b) {
+   return Math.abs(a - b); 
+}
+
 isOnEvent = function (mousePos) {
     for (var i in currStream.events) {
         var evt = currStream.events[i];
-        if (Math.abs(evt.x - mousePos.x) < 2*eventRadius) {
+        if (diff(evt.x, mousePos.x) < 2*eventRadius) {
             return true;
         }
     }
