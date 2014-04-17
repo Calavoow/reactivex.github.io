@@ -5,14 +5,8 @@ date:   2014-02-27 01:49:44
 categories: ReactiveX update
 ---
 
-<div id="tabs">
-  <ul>
-    <li><a href="#tabs-1">Java</a></li>
-    <li><a href="#tabs-2">Ruby</a></li>
-    <li><a href="#tabs-3">Scala</a></li>
-    <li><a href="#tabs-4">C</a></li>
-  </ul>
-  <div id="tabs-1">
+<tabset>
+  <tab heading="Java">
 {% highlight java %}
 // says hello
 public class Main {
@@ -21,8 +15,8 @@ public class Main {
     }
 }
 {% endhighlight %}
-  </div>
-  <div id="tabs-2">
+  </tab>
+  <tab heading="Ruby">
 {% highlight ruby %}
 def print_hi(name)
   puts "Hi, #{name}"
@@ -30,8 +24,8 @@ end
 print_hi('Tom')
 #=> prints 'Hi, Tom' to STDOUT.
 {% endhighlight %}
-  </div>
-  <div id="tabs-3">
+  </tab>
+  <tab heading="Scala">
 {% highlight scala %}
 object HelloWorld {
   def main(args: Array[String]) {
@@ -39,8 +33,8 @@ object HelloWorld {
   }
 }
 {% endhighlight %}
-  </div>
-  <div id="tabs-4">
+  </tab>
+  <tab heading="C++">
 {% highlight cpp %}
 // hello, world
 int main(void)
@@ -49,6 +43,5 @@ int main(void)
     return 0;
 }
 {% endhighlight %}
-  </div>
-</div>
-
+  </tab>
+</tabset>
