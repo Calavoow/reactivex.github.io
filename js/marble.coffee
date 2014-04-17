@@ -31,15 +31,18 @@ window.onload = ->
 	
 	# register event handlers
 	canvas.addEventListener "mousemove", ((evt) ->
-		mousePos = getMousePos(canvas, evt)
-		currStream = getCurrentStream(mousePos)
+		mousePos = util.getMousePos(canvas, evt)
+		currStream = util.getCurrentStream(mousePos)
 		render canvas, mousePos
 		return
 	), false
 	canvas.addEventListener "mousedown", ((evt) ->
-		mousePos = getMousePos(canvas, evt)
-		if diff(mousePos.y, currStream.y) < 2 * eventRadius
-			(if isOnEvent(mousePos) then removeEvent(mousePos) else addEvent(mousePos))
+		mousePos = util.getMousePos(canvas, evt)
+		if util.diff(mousePos.y, currStream.y) < 2 * eventRadius
+			if util.isOnEvent(mousePos)
+				removeEvent(mousePos)
+			else
+				addEvent(mousePos)
 			render canvas, mousePos
 		return
 	), false
@@ -53,7 +56,7 @@ window.onload = ->
 	), false
 	
 	# bootstrap rendering
-	render canvas, getMousePos(canvas, null)
+	render canvas, util.getMousePos(canvas, null)
 	return
 
 ###
@@ -65,7 +68,7 @@ create_output_stream = ->
 	ys = stream_to_observable(streams[1], scheduler)
 	output_stream =
 		shape: "unknown"
-		y: output_stream_y()
+		y: util.output_stream_y()
 		events: []
 		end: 0
 
@@ -102,24 +105,26 @@ stream_to_observable = (stream, scheduler) ->
 render = (canvas, mousePos) ->
 	ctx = canvas.getContext("2d")
 	ctx.clearRect 0, 0, canvas.width, canvas.height
+
+	gfx = new Graphics(ctx)
 	
 	#var message = mousePos.x + ',' + mousePos.y;
 	#		ctx.font = '18pt Calibri';
 	#		ctx.fillStyle = 'black';
 	#		ctx.fillText(message, 10, 25);
 	for i of streams
-		draw_stream ctx, streams[i], false
-	set_pointer mousePos
-	draw_cursor ctx, mousePos
-	draw_operator ctx, canvas
-	draw_stream ctx, create_output_stream(), true
+		gfx.draw_stream streams[i], false
+	util.set_pointer mousePos
+	gfx.draw_cursor mousePos
+	gfx.draw_operator canvas
+	gfx.draw_stream create_output_stream(), true
 	return
 
 addEvent = (mousePos) ->
 	if mousePos.x + eventRadius < currStream.end
 		currStream.events.push
 			x: mousePos.x
-			color: random_color()
+			color: util.random_color()
 			shape: currStream.shape
 
 	return
@@ -127,191 +132,200 @@ addEvent = (mousePos) ->
 removeEvent = (mousePos) ->
 	for i of currStream.events
 		evt = currStream.events[i]
-		delete currStream.events[i]	if diff(evt.x, mousePos.x) < 2 * eventRadius
+		delete currStream.events[i]	if util.diff(evt.x, mousePos.x) < 2 * eventRadius
 	return
+
 ###
 # GRAPHICS
 ###
-draw_stream = (ctx, stream, isOutput) ->
-	op_y = operator_y()
-	draw_arrow ctx, 10, canvas.width - 10, stream.y
-	for i of stream.events
-		evt = stream.events[i]
-		switch evt.shape
-			when "circle"
-				fill_circle ctx, evt.x, stream.y, evt.color, false
-			when "square"
-				fill_square ctx, evt.x, stream.y, evt.color, false
-		(if isOutput then draw_dashed_arrow(ctx, evt.x, op_y + 2.5 * eventRadius, stream.y - eventRadius) else draw_dashed_arrow(ctx, evt.x, stream.y + eventRadius, op_y))
-	draw_line ctx, stream.end, stream.y - eventRadius, stream.end, stream.y + eventRadius, "#000000"
-	return
-
-draw_cursor = (ctx, mousePos) ->
-	if is_on_stream(mousePos)
-		isMarked = isOnEvent(mousePos)
-		switch currStream.shape
-			when "circle"
-				draw_circle ctx, mousePos.x, currStream.y, "red", isMarked
-			when "square"
-				draw_square ctx, mousePos.x, currStream.y, "red", isMarked
-
-draw_operator = (ctx) ->
-	y = operator_y()
-	ctx.beginPath()
-	ctx.rect 10, y, canvas.width - 20, 2.5 * eventRadius
-	ctx.lineWidth = 3
-	ctx.strokeStyle = "#000000"
-	ctx.stroke()
-	return
-
-set_pointer = (mousePos) ->
-	document.body.style.cursor = (if is_on_stream(mousePos) and diff(mousePos.x, currStream.end) < 5 then "ew-resize" else "auto")
-	return
-
-###
-# GRAPHICAL PRIMITIVES
-###
-draw_line = (ctx, fromx, fromy, tox, toy, color) ->
-	ctx.beginPath()
-	ctx.lineWith = 3
-	ctx.strokeStyle = color
-	ctx.moveTo fromx, fromy
-	ctx.lineTo tox, toy
-	ctx.stroke()
-	return
-
-draw_arrow = (ctx, fromx, tox, y) ->
-	ctx.beginPath()
-	ctx.lineWidth = 3
-	ctx.strokeStyle = "#000000"
-	ctx.moveTo fromx, y
-	ctx.lineTo tox - eventRadius, y
-	ctx.moveTo tox - eventRadius, y - 0.5 * eventRadius
-	ctx.lineTo tox, y
-	ctx.lineTo tox - eventRadius, y + 0.5 * eventRadius
-	ctx.closePath()
-	ctx.stroke()
-	return
-
-draw_dashed_arrow = (ctx, x, fromy, toy) ->
-	ctx.beginPath()
-	ctx.lineWidth = 3
-	ctx.strokeStyle = "#000000"
-	ctx.setLineDash [
-		4
-		7
-	]
-	ctx.moveTo x, fromy
-	ctx.lineTo x, toy - eventRadius
-	ctx.closePath()
-	ctx.stroke()
-	ctx.beginPath()
-	ctx.setLineDash []
-	ctx.moveTo x - 0.5 * eventRadius, toy - eventRadius
-	ctx.lineTo x, toy
-	ctx.lineTo x + 0.5 * eventRadius, toy - eventRadius
-	ctx.closePath()
-	ctx.stroke()
-	return
-
-draw_circle = (ctx, centerx, centery, color, isMarked) ->
-	circle ctx, centerx, centery, color, isMarked, (ctx) ->
-		ctx.stroke()
+class Graphics
+	constructor: (@ctx) ->
+	draw_stream: (stream, isOutput) ->
+		op_y = util.operator_y()
+		this.draw_arrow 10, canvas.width - 10, stream.y
+		for i of stream.events
+			evt = stream.events[i]
+			switch evt.shape
+				when "circle"
+					this.fill_circle evt.x, stream.y, evt.color, false
+				when "square"
+					this.fill_square evt.x, stream.y, evt.color, false
+			if isOutput 
+				this.draw_dashed_arrow(evt.x, op_y + 2.5 * eventRadius, stream.y - eventRadius)
+			else
+				this.draw_dashed_arrow(evt.x, stream.y + eventRadius, op_y)
+		this.draw_line stream.end, stream.y - eventRadius, stream.end, stream.y + eventRadius, "#000000"
 		return
 
-	return
+	draw_cursor: (mousePos) ->
+		if util.is_on_stream(mousePos)
+			isMarked = util.isOnEvent(mousePos)
+			switch currStream.shape
+				when "circle"
+					this.draw_circle mousePos.x, currStream.y, "red", isMarked
+				when "square"
+					this.draw_square mousePos.x, currStream.y, "red", isMarked
 
-fill_circle = (ctx, centerx, centery, color, isMarked) ->
-	circle ctx, centerx, centery, color, isMarked, (ctx) ->
-		ctx.fill()
+	draw_operator: ->
+		y = util.operator_y()
+		@ctx.beginPath()
+		@ctx.rect 10, y, canvas.width - 20, 2.5 * eventRadius
+		@ctx.lineWidth = 3
+		@ctx.strokeStyle = "#000000"
+		@ctx.stroke()
 		return
 
-	return
+	###
+	# GRAPHICAL PRIMITIVES
+	###
+	draw_line: (fromx, fromy, tox, toy, color) ->
+		@ctx.beginPath()
+		@ctx.lineWith = 3
+		@ctx.strokeStyle = color
+		@ctx.moveTo fromx, fromy
+		@ctx.lineTo tox, toy
+		@ctx.stroke()
+		return
 
-circle = (ctx, centerx, centery, color, isMarked, drawFunc) ->
-	ctx.beginPath()
-	ctx.arc centerx, centery, eventRadius, 0, 2 * Math.PI, false
-	ctx.fillStyle = color
-	drawFunc ctx
-	ctx.lineWidth = 3
-	ctx.strokeStyle = (if isMarked then "red" else "#000000")
-	ctx.stroke()
-	return
+	draw_arrow: (fromx, tox, y) ->
+		@ctx.beginPath()
+		@ctx.lineWidth = 3
+		@ctx.strokeStyle = "#000000"
+		@ctx.moveTo fromx, y
+		@ctx.lineTo tox - eventRadius, y
+		@ctx.moveTo tox - eventRadius, y - 0.5 * eventRadius
+		@ctx.lineTo tox, y
+		@ctx.lineTo tox - eventRadius, y + 0.5 * eventRadius
+		@ctx.closePath()
+		@ctx.stroke()
+		return
 
-draw_square = (ctx, centerx, centery, color, isMarked) ->
-	square ctx, centerx, centery, color, isMarked, false
-	return
+	draw_dashed_arrow: (x, fromy, toy) ->
+		@ctx.beginPath()
+		@ctx.lineWidth = 3
+		@ctx.strokeStyle = "#000000"
+		@ctx.setLineDash [
+			4
+			7
+		]
+		@ctx.moveTo x, fromy
+		@ctx.lineTo x, toy - eventRadius
+		@ctx.closePath()
+		@ctx.stroke()
+		@ctx.beginPath()
+		@ctx.setLineDash []
+		@ctx.moveTo x - 0.5 * eventRadius, toy - eventRadius
+		@ctx.lineTo x, toy
+		@ctx.lineTo x + 0.5 * eventRadius, toy - eventRadius
+		@ctx.closePath()
+		@ctx.stroke()
+		return
 
-fill_square = (ctx, centerx, centery, color, isMarked) ->
-	square ctx, centerx, centery, color, isMarked, true
-	return
+	draw_circle: (centerx, centery, color, isMarked) ->
+		this.circle centerx, centery, color, isMarked, (ctx) ->
+			ctx.stroke()
+			return
 
-square = (ctx, centerx, centery, color, isMarked, doFill) ->
-	ctx.beginPath()
-	ctx.rect centerx - eventRadius, centery - eventRadius, 2 * eventRadius, 2 * eventRadius
-	if doFill
-		ctx.fillStyle = color
-		ctx.fill()
-	ctx.lineWidth = 3
-	ctx.strokeStyle = (if isMarked then "red" else "#000000")
-	ctx.stroke()
-	return
+		return
+
+	fill_circle: (centerx, centery, color, isMarked) ->
+		this.circle centerx, centery, color, isMarked, (ctx) ->
+			ctx.fill()
+			return
+
+		return
+
+	circle: (centerx, centery, color, isMarked, drawFunc) ->
+		@ctx.beginPath()
+		@ctx.arc centerx, centery, eventRadius, 0, 2 * Math.PI, false
+		@ctx.fillStyle = color
+		drawFunc @ctx
+		@ctx.lineWidth = 3
+		@ctx.strokeStyle = (if isMarked then "red" else "#000000")
+		@ctx.stroke()
+		return
+
+	draw_square: (centerx, centery, color, isMarked) ->
+		this.square centerx, centery, color, isMarked, false
+		return
+
+	fill_square: (centerx, centery, color, isMarked) ->
+		this.square centerx, centery, color, isMarked, true
+		return
+
+	square: (centerx, centery, color, isMarked, doFill) ->
+		@ctx.beginPath()
+		@ctx.rect centerx - eventRadius, centery - eventRadius, 2 * eventRadius, 2 * eventRadius
+		if doFill
+			@ctx.fillStyle = color
+			@ctx.fill()
+		@ctx.lineWidth = 3
+		@ctx.strokeStyle = (if isMarked then "red" else "#000000")
+		@ctx.stroke()
+		return
 
 ###
 # UTILITIES
 ###
-getCurrentStream = (mousePos) ->
-	minDistance = Number.POSITIVE_INFINITY
-	selectedStream = currStream
-	for i of streams
-		stream = streams[i]
-		distance = diff(stream.y, mousePos.y)
-		if distance < minDistance
-			minDistance = distance
-			selectedStream = stream
-	selectedStream
+util = 
+	getCurrentStream: (mousePos) ->
+		minDistance = Number.POSITIVE_INFINITY
+		selectedStream = currStream
+		for i of streams
+			stream = streams[i]
+			distance = this.diff(stream.y, mousePos.y)
+			if distance < minDistance
+				minDistance = distance
+				selectedStream = stream
+		selectedStream
 
-is_on_stream = (mousePos) ->
-	diff(mousePos.y, currStream.y) < 2 * eventRadius
+	is_on_stream: (mousePos) ->
+		this.diff(mousePos.y, currStream.y) < 2 * eventRadius
 
-diff = (a, b) ->
-	Math.abs a - b
+	diff: (a, b) ->
+		Math.abs a - b
 
-isOnEvent = (mousePos) ->
-	for i of currStream.events
-		evt = currStream.events[i]
-		return true	if diff(evt.x, mousePos.x) < 2 * eventRadius
-	false
+	isOnEvent: (mousePos) ->
+		for i of currStream.events
+			evt = currStream.events[i]
+			return true	if this.diff(evt.x, mousePos.x) < 2 * eventRadius
+		false
 
-getMousePos = (canvas, evt) ->
-	rect = canvas.getBoundingClientRect()
-	if evt?
-		x: evt.clientX - rect.left
-		y: evt.clientY - rect.top
-	else
-		x: 0
-		y: 0
+	getMousePos: (canvas, evt) ->
+		rect = canvas.getBoundingClientRect()
+		if evt?
+			x: evt.clientX - rect.left
+			y: evt.clientY - rect.top
+		else
+			x: 0
+			y: 0
 
-operator_y = ->
-	y = 0
-	for i of streams
-		sy = streams[i].y
-		y = sy	if sy > y
-	y + eventRadius * 3
+	set_pointer: (mousePos) ->
+		document.body.style.cursor =
+			(if this.is_on_stream(mousePos) and this.diff(mousePos.x, currStream.end) < 5	then "ew-resize"
+			else "auto")
+		return
 
-output_stream_y = ->
-	ypos = 0
-	for i of streams
-		stream = streams[i]
-		ypos = stream.y	if stream.y > ypos
-	ypos + eventRadius * 9
+	operator_y: ->
+		y = 0
+		for i of streams
+			sy = streams[i].y
+			y = sy	if sy > y
+		y + eventRadius * 3
 
-random_color = ->
-	letters = "0123456789ABCDEF".split("")
-	color = "#"
-	i = 0
+	output_stream_y: ->
+		ypos = 0
+		for i of streams
+			stream = streams[i]
+			ypos = stream.y	if stream.y > ypos
+		ypos + eventRadius * 9
 
-	while i < 6
-		color += letters[Math.round(Math.random() * 15)]
-		i++
-	color
+	random_color: ->
+		letters = "0123456789ABCDEF".split("")
+		color = "#"
+		i = 0
+
+		while i < 6
+			color += letters[Math.round(Math.random() * 15)]
+			i++
+		color
