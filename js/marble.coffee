@@ -9,43 +9,51 @@ eventRadius = 20
 ###
 # MAIN
 ###
+
 window.onload = ->
-	
 	# init globals
 	canvas = document.getElementById("rxCanvas")
 	streams = [
 		{
 			shape: "circle"
 			y: canvas.height / 8
-			events: []
+			notifications: []
 			end: 450
+			start: 10
+			maxEnd: canvas.width - 10
 		}
 		{
 			shape: "square"
 			y: canvas.height / 8 * 3
-			events: []
+			notifications: []
 			end: 470
+			start: 10
+			maxEnd: canvas.width - 10 
 		}
 	]
 	currStream = streams[0]
 	
 	# register event handlers
 	canvas.addEventListener "mousemove", ((evt) ->
-		mousePos = util.getMousePos(canvas, evt)
+		mousePos = util.setMousePos(canvas, evt)
 		currStream = util.getCurrentStream(mousePos)
 		render canvas, mousePos
 		return
 	), false
+
 	canvas.addEventListener "mousedown", ((evt) ->
-		mousePos = util.getMousePos(canvas, evt)
+		mousePos = util.setMousePos(canvas, evt)
 		if util.diff(mousePos.y, currStream.y) < 2 * eventRadius
-			if util.isOnEvent(mousePos)
-				removeEvent(mousePos)
+			# Remove the notification at the current position, if it exists.
+			notifIdx = util.onNotification(mousePos)
+			if notifIdx?
+				removeNotification(notifIdx)
 			else
 				addEvent(mousePos)
 			render canvas, mousePos
 		return
 	), false
+
 	canvas.addEventListener "mouseout", ((evt) ->
 		mousePos =
 			x: -1337
@@ -54,9 +62,31 @@ window.onload = ->
 		render canvas, mousePos
 		return
 	), false
+
+	canvas.addEventListener "keypress", ((evt) ->
+		mousePos = util.getMousePos()
+		if util.diff(mousePos.y, currStream.y) < 2 * eventRadius
+			notifIdx = util.onNotification(mousePos)
+			if notifIdx?
+				console.log("Removin thing")
+				removeNotification(notifIdx)
+			else
+				switch evt.which
+					when 101
+						console.log("E pressed")
+						addError(mousePos)
+					when 99 
+						console.log("C pressed")
+						setComplete(mousePos)
+					else
+						console.log(evt.which)
+
+		return
+	), false
+		
 	
 	# bootstrap rendering
-	render canvas, util.getMousePos(canvas, null)
+	render canvas, util.getMousePos()
 	return
 
 ###
@@ -69,13 +99,14 @@ create_output_stream = ->
 	output_stream =
 		shape: "unknown"
 		y: util.output_stream_y()
-		events: []
+		notifications: []
+		start: 10
 		end: 0
 
 	xs.merge(ys).subscribe ((evt) ->
 		
 		#console.log("[OK] " + evt + " " + scheduler.now());
-		output_stream.events.push evt
+		output_stream.notifications.push evt
 		return
 	), ((err) ->
 	
@@ -84,6 +115,7 @@ create_output_stream = ->
 		
 		#console.log("[DONE] " + scheduler.now());
 		output_stream.end = scheduler.now()
+		output_stream.maxEnd = output_stream.end + 2*eventRadius
 		return
 
 	scheduler.start()
@@ -92,15 +124,15 @@ create_output_stream = ->
 stream_to_observable = (stream, scheduler) ->
 	onNext = Rx.ReactiveTest.onNext
 	onCompleted = Rx.ReactiveTest.onCompleted
-	events = []
+	notifications= []
 	i = 0
 
-	while i < stream.events.length
-		evt = stream.events[i]
-		events.push onNext(evt.x, evt)	if evt? and evt isnt `undefined`
+	while i < stream.notifications.length
+		evt = stream.notifications[i]
+		notifications.push onNext(evt.x, evt) if evt?
 		i++
-	events.push onCompleted(stream.end)
-	scheduler.createColdObservable events
+	notifications.push onCompleted(stream.end)
+	scheduler.createColdObservable notifications 
 
 render = (canvas, mousePos) ->
 	ctx = canvas.getContext("2d")
@@ -122,17 +154,33 @@ render = (canvas, mousePos) ->
 
 addEvent = (mousePos) ->
 	if mousePos.x + eventRadius < currStream.end
-		currStream.events.push
+		currStream.notifications.push
 			x: mousePos.x
 			color: util.random_color()
 			shape: currStream.shape
-
 	return
 
-removeEvent = (mousePos) ->
-	for i of currStream.events
-		evt = currStream.events[i]
-		delete currStream.events[i]	if util.diff(evt.x, mousePos.x) < 2 * eventRadius
+setComplete = (mousePos) ->
+	if mousePos.x - eventRadius > currStream.start and mousePos.x + eventRadius < currStream.maxEnd
+		currStream.end = mousePos.x
+		cleanNotifications()
+
+###
+# Remove notifications that are after the currStream's end
+###
+cleanNotifications = ->
+	for notif, i in currStream.notifications
+		removeNotification(i) if notif.x + eventRadius > currStream.end
+	return
+
+# Remove a notification by id from the currStream
+removeNotification = (notifIdx) ->
+	currStream.notifications.splice(notifIdx,1)
+	###
+		for i of currStream.notifications
+			evt = currStream.notifications[i]
+			delete currStream.notifications[i]	if util.diff(evt.x, mousePos.x) < 2 * eventRadius
+	###
 	return
 
 ###
@@ -142,29 +190,29 @@ class Graphics
 	constructor: (@ctx) ->
 	draw_stream: (stream, isOutput) ->
 		op_y = util.operator_y()
-		this.draw_arrow 10, canvas.width - 10, stream.y
-		for i of stream.events
-			evt = stream.events[i]
-			switch evt.shape
+		this.draw_arrow stream.start, stream.maxEnd- 10, stream.y
+		for i of stream.notifications
+			notif = stream.notifications[i]
+			switch notif.shape
 				when "circle"
-					this.fill_circle evt.x, stream.y, evt.color, false
+					this.fill_circle notif.x, stream.y, notif.color, false
 				when "square"
-					this.fill_square evt.x, stream.y, evt.color, false
+					this.fill_square notif.x, stream.y, notif.color, false
 			if isOutput 
-				this.draw_dashed_arrow(evt.x, op_y + 2.5 * eventRadius, stream.y - eventRadius)
+				this.draw_dashed_arrow(notif.x, op_y + 2.5 * eventRadius, stream.y - eventRadius)
 			else
-				this.draw_dashed_arrow(evt.x, stream.y + eventRadius, op_y)
+				this.draw_dashed_arrow(notif.x, stream.y + eventRadius, op_y)
 		this.draw_line stream.end, stream.y - eventRadius, stream.end, stream.y + eventRadius, "#000000"
 		return
 
 	draw_cursor: (mousePos) ->
 		if util.is_on_stream(mousePos)
-			isMarked = util.isOnEvent(mousePos)
+			isMarked = util.onNotification(mousePos)
 			switch currStream.shape
 				when "circle"
-					this.draw_circle mousePos.x, currStream.y, "red", isMarked
+					this.draw_circle mousePos.x, currStream.y, "red", isMarked?
 				when "square"
-					this.draw_square mousePos.x, currStream.y, "red", isMarked
+					this.draw_square mousePos.x, currStream.y, "red", isMarked?
 
 	draw_operator: ->
 		y = util.operator_y()
@@ -285,20 +333,28 @@ util =
 	diff: (a, b) ->
 		Math.abs a - b
 
-	isOnEvent: (mousePos) ->
-		for i of currStream.events
-			evt = currStream.events[i]
-			return true	if this.diff(evt.x, mousePos.x) < 2 * eventRadius
-		false
+	onNotification: (mousePos) ->
+		for i of currStream.notifications
+			evt = currStream.notifications[i]
+			return i if this.diff(evt.x, mousePos.x) < 2 * eventRadius
+		return null
+	
+	pos:
+		x: 0
+		y: 0
 
-	getMousePos: (canvas, evt) ->
+	getMousePos: ->
+		return @pos
+
+	setMousePos: (canvas, evt) ->
 		rect = canvas.getBoundingClientRect()
-		if evt?
+		@pos = if evt?
 			x: evt.clientX - rect.left
 			y: evt.clientY - rect.top
 		else
 			x: 0
 			y: 0
+		return @pos
 
 	set_pointer: (mousePos) ->
 		document.body.style.cursor =

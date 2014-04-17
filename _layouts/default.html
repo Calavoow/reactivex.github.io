@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html{% if page.ng_app %} ng-app="{{ page.ng_app }}"{% endif %}>
+<html{% if page.ngApp %} ng-app="{{ page.ngApp }}"{% endif %}>
     <head>
         <meta charset="utf-8">
         <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
@@ -30,8 +30,7 @@
         <script src="{{ site.baseurl }}/js/ui-bootstrap-tpls-0.10.0.min.js"></script>
 
 		<!-- Page specific JS -->
-        {% for js_name in page.extra_js %}
-        <script src="{{ site.baseurl }}/{{ js_name }}"></script>
+        {% for jsName in page.customJS %}<script src="{{ site.baseurl }}/js/{{ jsName }}"></script>
         {% endfor %}
 
     </head>
@@ -42,7 +41,7 @@
                   <img src="{{ site.baseurl }}/assets/Rx_Logo_S.png" />
                   <a href="/">{{ site.name }}</a>
               </h1>
-            <a class="extra" href="{{ site.baseurl }}">home</a>
+            <a class="extra" href="{{ site.baseurl }}/">home</a>
             <a class="extra" href="#" data-dropdown="#polyglot">polyglot</a>
             <a class="extra" href="{{ site.baseurl }}/operators/">operators</a>
             <a class="extra" href="{{ site.baseurl }}/code/">code</a>

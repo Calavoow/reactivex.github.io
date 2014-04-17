@@ -5,7 +5,7 @@
  */
 
 (function() {
-  var Graphics, addEvent, canvas, create_output_stream, currStream, eventRadius, removeEvent, render, stream_to_observable, streams, util;
+  var Graphics, addEvent, canvas, cleanNotifications, create_output_stream, currStream, eventRadius, removeNotification, render, setComplete, stream_to_observable, streams, util;
 
   canvas = void 0;
 
@@ -26,28 +26,33 @@
       {
         shape: "circle",
         y: canvas.height / 8,
-        events: [],
-        end: 450
+        notifications: [],
+        end: 450,
+        start: 10,
+        maxEnd: canvas.width - 10
       }, {
         shape: "square",
         y: canvas.height / 8 * 3,
-        events: [],
-        end: 470
+        notifications: [],
+        end: 470,
+        start: 10,
+        maxEnd: canvas.width - 10
       }
     ];
     currStream = streams[0];
     canvas.addEventListener("mousemove", (function(evt) {
       var mousePos;
-      mousePos = util.getMousePos(canvas, evt);
+      mousePos = util.setMousePos(canvas, evt);
       currStream = util.getCurrentStream(mousePos);
       render(canvas, mousePos);
     }), false);
     canvas.addEventListener("mousedown", (function(evt) {
-      var mousePos;
-      mousePos = util.getMousePos(canvas, evt);
+      var mousePos, notifIdx;
+      mousePos = util.setMousePos(canvas, evt);
       if (util.diff(mousePos.y, currStream.y) < 2 * eventRadius) {
-        if (util.isOnEvent(mousePos)) {
-          removeEvent(mousePos);
+        notifIdx = util.onNotification(mousePos);
+        if (notifIdx != null) {
+          removeNotification(notifIdx);
         } else {
           addEvent(mousePos);
         }
@@ -62,7 +67,31 @@
       };
       render(canvas, mousePos);
     }), false);
-    render(canvas, util.getMousePos(canvas, null));
+    canvas.addEventListener("keypress", (function(evt) {
+      var mousePos, notifIdx;
+      mousePos = util.getMousePos();
+      if (util.diff(mousePos.y, currStream.y) < 2 * eventRadius) {
+        notifIdx = util.onNotification(mousePos);
+        if (notifIdx != null) {
+          console.log("Removin thing");
+          removeNotification(notifIdx);
+        } else {
+          switch (evt.which) {
+            case 101:
+              console.log("E pressed");
+              addError(mousePos);
+              break;
+            case 99:
+              console.log("C pressed");
+              setComplete(mousePos);
+              break;
+            default:
+              console.log(evt.which);
+          }
+        }
+      }
+    }), false);
+    render(canvas, util.getMousePos());
   };
 
 
@@ -78,33 +107,35 @@
     output_stream = {
       shape: "unknown",
       y: util.output_stream_y(),
-      events: [],
+      notifications: [],
+      start: 10,
       end: 0
     };
     xs.merge(ys).subscribe((function(evt) {
-      output_stream.events.push(evt);
+      output_stream.notifications.push(evt);
     }), (function(err) {}), function() {
       output_stream.end = scheduler.now();
+      output_stream.maxEnd = output_stream.end + 2 * eventRadius;
     });
     scheduler.start();
     return output_stream;
   };
 
   stream_to_observable = function(stream, scheduler) {
-    var events, evt, i, onCompleted, onNext;
+    var evt, i, notifications, onCompleted, onNext;
     onNext = Rx.ReactiveTest.onNext;
     onCompleted = Rx.ReactiveTest.onCompleted;
-    events = [];
+    notifications = [];
     i = 0;
-    while (i < stream.events.length) {
-      evt = stream.events[i];
-      if ((evt != null) && evt !== undefined) {
-        events.push(onNext(evt.x, evt));
+    while (i < stream.notifications.length) {
+      evt = stream.notifications[i];
+      if (evt != null) {
+        notifications.push(onNext(evt.x, evt));
       }
       i++;
     }
-    events.push(onCompleted(stream.end));
-    return scheduler.createColdObservable(events);
+    notifications.push(onCompleted(stream.end));
+    return scheduler.createColdObservable(notifications);
   };
 
   render = function(canvas, mousePos) {
@@ -123,7 +154,7 @@
 
   addEvent = function(mousePos) {
     if (mousePos.x + eventRadius < currStream.end) {
-      currStream.events.push({
+      currStream.notifications.push({
         x: mousePos.x,
         color: util.random_color(),
         shape: currStream.shape
@@ -131,14 +162,37 @@
     }
   };
 
-  removeEvent = function(mousePos) {
-    var evt, i;
-    for (i in currStream.events) {
-      evt = currStream.events[i];
-      if (util.diff(evt.x, mousePos.x) < 2 * eventRadius) {
-        delete currStream.events[i];
+  setComplete = function(mousePos) {
+    if (mousePos.x - eventRadius > currStream.start && mousePos.x + eventRadius < currStream.maxEnd) {
+      currStream.end = mousePos.x;
+      return cleanNotifications();
+    }
+  };
+
+
+  /*
+   * Remove notifications that are after the currStream's end
+   */
+
+  cleanNotifications = function() {
+    var i, notif, _i, _len, _ref;
+    _ref = currStream.notifications;
+    for (i = _i = 0, _len = _ref.length; _i < _len; i = ++_i) {
+      notif = _ref[i];
+      if (notif.x + eventRadius > currStream.end) {
+        removeNotification(i);
       }
     }
+  };
+
+  removeNotification = function(notifIdx) {
+    currStream.notifications.splice(notifIdx, 1);
+
+    /*
+    		for i of currStream.notifications
+    			evt = currStream.notifications[i]
+    			delete currStream.notifications[i]	if util.diff(evt.x, mousePos.x) < 2 * eventRadius
+     */
   };
 
 
@@ -152,22 +206,22 @@
     }
 
     Graphics.prototype.draw_stream = function(stream, isOutput) {
-      var evt, i, op_y;
+      var i, notif, op_y;
       op_y = util.operator_y();
-      this.draw_arrow(10, canvas.width - 10, stream.y);
-      for (i in stream.events) {
-        evt = stream.events[i];
-        switch (evt.shape) {
+      this.draw_arrow(stream.start, stream.maxEnd - 10, stream.y);
+      for (i in stream.notifications) {
+        notif = stream.notifications[i];
+        switch (notif.shape) {
           case "circle":
-            this.fill_circle(evt.x, stream.y, evt.color, false);
+            this.fill_circle(notif.x, stream.y, notif.color, false);
             break;
           case "square":
-            this.fill_square(evt.x, stream.y, evt.color, false);
+            this.fill_square(notif.x, stream.y, notif.color, false);
         }
         if (isOutput) {
-          this.draw_dashed_arrow(evt.x, op_y + 2.5 * eventRadius, stream.y - eventRadius);
+          this.draw_dashed_arrow(notif.x, op_y + 2.5 * eventRadius, stream.y - eventRadius);
         } else {
-          this.draw_dashed_arrow(evt.x, stream.y + eventRadius, op_y);
+          this.draw_dashed_arrow(notif.x, stream.y + eventRadius, op_y);
         }
       }
       this.draw_line(stream.end, stream.y - eventRadius, stream.end, stream.y + eventRadius, "#000000");
@@ -176,12 +230,12 @@
     Graphics.prototype.draw_cursor = function(mousePos) {
       var isMarked;
       if (util.is_on_stream(mousePos)) {
-        isMarked = util.isOnEvent(mousePos);
+        isMarked = util.onNotification(mousePos);
         switch (currStream.shape) {
           case "circle":
-            return this.draw_circle(mousePos.x, currStream.y, "red", isMarked);
+            return this.draw_circle(mousePos.x, currStream.y, "red", isMarked != null);
           case "square":
-            return this.draw_square(mousePos.x, currStream.y, "red", isMarked);
+            return this.draw_square(mousePos.x, currStream.y, "red", isMarked != null);
         }
       }
     };
@@ -313,30 +367,34 @@
     diff: function(a, b) {
       return Math.abs(a - b);
     },
-    isOnEvent: function(mousePos) {
+    onNotification: function(mousePos) {
       var evt, i;
-      for (i in currStream.events) {
-        evt = currStream.events[i];
+      for (i in currStream.notifications) {
+        evt = currStream.notifications[i];
         if (this.diff(evt.x, mousePos.x) < 2 * eventRadius) {
-          return true;
+          return i;
         }
       }
-      return false;
+      return null;
     },
-    getMousePos: function(canvas, evt) {
+    pos: {
+      x: 0,
+      y: 0
+    },
+    getMousePos: function() {
+      return this.pos;
+    },
+    setMousePos: function(canvas, evt) {
       var rect;
       rect = canvas.getBoundingClientRect();
-      if (evt != null) {
-        return {
-          x: evt.clientX - rect.left,
-          y: evt.clientY - rect.top
-        };
-      } else {
-        return {
-          x: 0,
-          y: 0
-        };
-      }
+      this.pos = evt != null ? {
+        x: evt.clientX - rect.left,
+        y: evt.clientY - rect.top
+      } : {
+        x: 0,
+        y: 0
+      };
+      return this.pos;
     },
     set_pointer: function(mousePos) {
       document.body.style.cursor = (this.is_on_stream(mousePos) && this.diff(mousePos.x, currStream.end) < 5 ? "ew-resize" : "auto");
