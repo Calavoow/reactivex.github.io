@@ -5,7 +5,7 @@
  */
 
 (function() {
-  var Graphics, addEvent, canvas, cleanNotifications, create_output_stream, currStream, eventRadius, removeNotification, render, setComplete, stream_to_observable, streams, util;
+  var Graphics, addError, addEvent, canvas, cleanNotifications, create_output_stream, currStream, eventRadius, removeNotification, render, setComplete, stream_to_observable, streams, util, validNotification;
 
   canvas = void 0;
 
@@ -90,6 +90,7 @@
           }
         }
       }
+      render(canvas, mousePos);
     }), false);
     render(canvas, util.getMousePos());
   };
@@ -113,7 +114,11 @@
     };
     xs.merge(ys).subscribe((function(evt) {
       output_stream.notifications.push(evt);
-    }), (function(err) {}), function() {
+    }), (function(err) {
+      output_stream.notifications.push(err);
+      output_stream.end = null;
+      output_stream.maxEnd = err.x + 3 * eventRadius;
+    }), function() {
       output_stream.end = scheduler.now();
       output_stream.maxEnd = output_stream.end + 2 * eventRadius;
     });
@@ -122,19 +127,25 @@
   };
 
   stream_to_observable = function(stream, scheduler) {
-    var evt, i, notifications, onCompleted, onNext;
-    onNext = Rx.ReactiveTest.onNext;
-    onCompleted = Rx.ReactiveTest.onCompleted;
+    var notif, notifications, _i, _len, _ref;
     notifications = [];
-    i = 0;
-    while (i < stream.notifications.length) {
-      evt = stream.notifications[i];
-      if (evt != null) {
-        notifications.push(onNext(evt.x, evt));
+    _ref = stream.notifications;
+    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+      notif = _ref[_i];
+      switch (notif.type) {
+        case "Event":
+          notifications.push(Rx.ReactiveTest.onNext(notif.x, notif));
+          break;
+        case "Error":
+          notifications.push(Rx.ReactiveTest.onError(notif.x, notif));
+          break;
+        default:
+          console.log("Something wrong with notification type");
       }
-      i++;
     }
-    notifications.push(onCompleted(stream.end));
+    if (stream.end != null) {
+      notifications.push(Rx.ReactiveTest.onCompleted(stream.end));
+    }
     return scheduler.createColdObservable(notifications);
   };
 
@@ -153,13 +164,34 @@
   };
 
   addEvent = function(mousePos) {
-    if (mousePos.x + eventRadius < currStream.end) {
+    if (validNotification(mousePos)) {
       currStream.notifications.push({
         x: mousePos.x,
         color: util.random_color(),
-        shape: currStream.shape
+        shape: currStream.shape,
+        type: "Event"
       });
     }
+  };
+
+  addError = function(mousePos) {
+    if (validNotification(mousePos)) {
+      currStream.notifications.push({
+        x: mousePos.x,
+        color: util.random_color(),
+        type: "Error"
+      });
+    }
+  };
+
+
+  /*
+   * Invariant property of events and errors.
+   * Requires a .x property on the given object.
+   */
+
+  validNotification = function(notif) {
+    return notif.x + eventRadius < currStream.end && notif.x - eventRadius > currStream.start;
   };
 
   setComplete = function(mousePos) {
@@ -175,24 +207,18 @@
    */
 
   cleanNotifications = function() {
-    var i, notif, _i, _len, _ref;
-    _ref = currStream.notifications;
-    for (i = _i = 0, _len = _ref.length; _i < _len; i = ++_i) {
-      notif = _ref[i];
-      if (notif.x + eventRadius > currStream.end) {
-        removeNotification(i);
-      }
-    }
+    console.log(currStream.notifications);
+    currStream.notifications = currStream.notifications.filter(function(notif) {
+      var val;
+      val = validNotification(notif);
+      console.log(val);
+      return val;
+    });
   };
 
   removeNotification = function(notifIdx) {
+    console.log(notifIdx);
     currStream.notifications.splice(notifIdx, 1);
-
-    /*
-    		for i of currStream.notifications
-    			evt = currStream.notifications[i]
-    			delete currStream.notifications[i]	if util.diff(evt.x, mousePos.x) < 2 * eventRadius
-     */
   };
 
 
@@ -211,12 +237,12 @@
       this.draw_arrow(stream.start, stream.maxEnd - 10, stream.y);
       for (i in stream.notifications) {
         notif = stream.notifications[i];
-        switch (notif.shape) {
-          case "circle":
-            this.fill_circle(notif.x, stream.y, notif.color, false);
+        switch (notif.type) {
+          case "Event":
+            this.draw_event(stream, notif);
             break;
-          case "square":
-            this.fill_square(notif.x, stream.y, notif.color, false);
+          case "Error":
+            this.draw_error(stream, notif);
         }
         if (isOutput) {
           this.draw_dashed_arrow(notif.x, op_y + 2.5 * eventRadius, stream.y - eventRadius);
@@ -224,7 +250,22 @@
           this.draw_dashed_arrow(notif.x, stream.y + eventRadius, op_y);
         }
       }
-      this.draw_line(stream.end, stream.y - eventRadius, stream.end, stream.y + eventRadius, "#000000");
+      if (stream.end != null) {
+        this.draw_line(stream.end, stream.y - eventRadius, stream.end, stream.y + eventRadius, "#000000");
+      }
+    };
+
+    Graphics.prototype.draw_event = function(stream, event) {
+      switch (event.shape) {
+        case "circle":
+          return this.fill_circle(event.x, stream.y, event.color, false);
+        case "square":
+          return this.fill_square(event.x, stream.y, event.color, false);
+      }
+    };
+
+    Graphics.prototype.draw_error = function(stream, event) {
+      return this.draw_cross(event.x, stream.y, event.color);
     };
 
     Graphics.prototype.draw_cursor = function(mousePos) {
@@ -262,6 +303,11 @@
       this.ctx.moveTo(fromx, fromy);
       this.ctx.lineTo(tox, toy);
       this.ctx.stroke();
+    };
+
+    Graphics.prototype.draw_cross = function(centerx, centery, color) {
+      this.draw_line(centerx - eventRadius, centery + eventRadius, centerx + eventRadius, centery - eventRadius, color);
+      this.draw_line(centerx - eventRadius, centery - eventRadius, centerx + eventRadius, centery + eventRadius, color);
     };
 
     Graphics.prototype.draw_arrow = function(fromx, tox, y) {
