@@ -18,17 +18,17 @@ window.onload = ->
 			shape: "circle"
 			y: canvas.height / 8
 			notifications: []
-			end: 450
 			start: 10
 			maxEnd: canvas.width - 10
+			isOutput: false
 		}
 		{
 			shape: "square"
 			y: canvas.height / 8 * 3
 			notifications: []
-			end: 470
 			start: 10
 			maxEnd: canvas.width - 10 
+			isOutput: false
 		}
 	]
 	currStream = streams[0]
@@ -68,18 +68,15 @@ window.onload = ->
 		if util.diff(mousePos.y, currStream.y) < 2 * eventRadius
 			notifIdx = util.onNotification(mousePos)
 			if notifIdx?
-				console.log("Removin thing")
 				removeNotification(notifIdx)
 			else
 				switch evt.which
 					when 101
-						console.log("E pressed")
+						# E pressed
 						addError(mousePos)
 					when 99 
-						console.log("C pressed")
+						# C pressed
 						setComplete(mousePos)
-					else
-						console.log(evt.which)
 		render canvas, mousePos
 		return
 	), false
@@ -102,17 +99,19 @@ create_output_stream = ->
 		notifications: []
 		start: 10
 		end: 0
+		isOutput: true
 
 	xs.merge(ys).subscribe ((evt) ->
 		output_stream.notifications.push evt
 		return
 	), ((err) ->
 		output_stream.notifications.push err
-		output_stream.end = null # There is no completion time
 		output_stream.maxEnd = err.x + 3*eventRadius
 		return
 	), ->
-		output_stream.end = scheduler.now()
+		output_stream.notifications.push
+			x: scheduler.now()
+			type: "Complete"
 		output_stream.maxEnd = output_stream.end + 2*eventRadius
 		return
 
@@ -120,35 +119,38 @@ create_output_stream = ->
 	output_stream
 
 stream_to_observable = (stream, scheduler) ->
-	notifications= []
-	for notif in stream.notifications
-		switch notif.type
+	notifications = stream.notifications.map((notif) ->
+		notifType = switch notif.type
 			when "Event"
-				notifications.push Rx.ReactiveTest.onNext(notif.x, notif)
+				Rx.ReactiveTest.onNext
 			when "Error"
-				notifications.push Rx.ReactiveTest.onError(notif.x, notif)
+				Rx.ReactiveTest.onError
+			when "Complete"
+				Rx.ReactiveTest.onComplete
 			else console.log("Something wrong with notification type")
+		notifType(notif.x, notif)
+	)
 
-	if stream.end?
-		notifications.push Rx.ReactiveTest.onCompleted(stream.end)
 	scheduler.createColdObservable notifications
 
 render = (canvas, mousePos) ->
 	ctx = canvas.getContext("2d")
 	ctx.clearRect 0, 0, canvas.width, canvas.height
-
 	gfx = new Graphics(ctx)
 	
 	#var message = mousePos.x + ',' + mousePos.y;
 	#		ctx.font = '18pt Calibri';
 	#		ctx.fillStyle = 'black';
 	#		ctx.fillText(message, 10, 25);
+	###
 	for i of streams
-		gfx.draw_stream streams[i], false
+		gfx.draw_stream streams[i]
+	###
+	streams.concat(create_output_stream()).forEach((stream) -> gfx.draw_stream(stream))
 	util.set_pointer mousePos
 	gfx.draw_cursor mousePos
 	gfx.draw_operator canvas
-	gfx.draw_stream create_output_stream(), true
+	# gfx.draw_stream create_output_stream() 
 	return
 
 addEvent = (mousePos) ->
@@ -169,23 +171,32 @@ addError = (mousePos) ->
 	return
 
 ###
-# Invariant property of events and errors.
-# Requires a .x property on the given object.
+# Invariant property of Notifications
+#
+# Requires a .x property on given events and errors.
 ###
 validNotification = (notif) ->
-	return notif.x + eventRadius < currStream.end and notif.x - eventRadius > currStream.start
+	completionNotifs = currStream.notifications.filter((curNotif) -> curNotif.type is "Complete")
+	# Filter out any older completion notifications from the stream.
+	if notif.type is "Complete"
+		# Only the last completion is valid.
+		notif.x is completionNotifs[completionNotifs.length-1].x 
+	else
+		# It should NOT be the case that the event happens after any completionNotif.
+		notifBeforeEnd = not completionNotifs.some((completionNotif) -> notif.x + eventRadius >= completionNotif.x)
+		notifBeforeEnd and notif.x - eventRadius > currStream.start
 
 
 setComplete = (mousePos) ->
 	if mousePos.x - eventRadius > currStream.start and mousePos.x + eventRadius < currStream.maxEnd
-		currStream.end = mousePos.x
-		cleanNotifications()
+		currStream.notifications.push(
+			x: mousePos.x
+			type: "Complete"
+		).filter((notif) -> validNotification(notif))
 
 ###
 # Remove notifications that are after the currStream's end
-###
 cleanNotifications = ->
-	console.log(currStream.notifications)
 	# Do not perform in place modifications while looping
 	currStream.notifications = currStream.notifications.filter( (notif) ->
 		val = validNotification(notif)
@@ -193,10 +204,11 @@ cleanNotifications = ->
 		return val
 	)
 	return
+###
 
 # Remove a notification by id from the currStream
 removeNotification = (notifIdx) ->
-	console.log(notifIdx)
+	console.log("Removing notification" + notifIdx)
 	currStream.notifications.splice(notifIdx,1)
 	return
 
@@ -205,32 +217,41 @@ removeNotification = (notifIdx) ->
 ###
 class Graphics
 	constructor: (@ctx) ->
-	draw_stream: (stream, isOutput) ->
+	draw_stream: (stream) ->
 		op_y = util.operator_y()
 		this.draw_arrow stream.start, stream.maxEnd - 10, stream.y
-		for i of stream.notifications
-			notif = stream.notifications[i]
+		for notif in stream.notifications
 			switch notif.type
 				when "Event" then this.draw_event stream, notif
 				when "Error" then this.draw_error stream, notif
-			if isOutput 
-				this.draw_dashed_arrow(notif.x, op_y + 2.5 * eventRadius, stream.y - eventRadius)
-			else
-				this.draw_dashed_arrow(notif.x, stream.y + eventRadius, op_y)
+				when "Complete" then this.draw_complete stream, notif
 		# If there is an end to the stream
-		if stream.end?
-			this.draw_line stream.end, stream.y - eventRadius, stream.end, stream.y + eventRadius, "#000000"
 		return
 
-	draw_event: (stream, event) ->
-			switch event.shape
-				when "circle"
-					this.fill_circle event.x, stream.y, event.color, false
-				when "square"
-					this.fill_square event.x, stream.y, event.color, false
+	draw_event: (stream, event, isOutput) ->
+		switch event.shape
+			when "circle"
+				this.fill_circle event.x, stream.y, event.color, false
+			when "square"
+				this.fill_square event.x, stream.y, event.color, false
+		this.draw_arrow_to_op(stream, event)
 	
-	draw_error: (stream, event) ->
-		this.draw_cross event.x, stream.y, event.color
+	draw_error: (stream, error, isOutput) ->
+		this.draw_cross error.x, stream.y, error.color
+		this.draw_arrow_to_op(stream, error)
+
+	draw_complete: (stream, complete) ->
+		this.draw_line complete.x, stream.y - eventRadius, complete.x, stream.y + eventRadius, "#000000"
+
+	draw_arrow_to_op: (stream, notif) ->
+		if stream.isOutput
+			this.draw_dashed_arrow(notif.x,
+				util.operator_y() + 2.5 * eventRadius, stream.y - eventRadius)
+		else
+			this.draw_dashed_arrow(notif.x,
+				stream.y + eventRadius, util.operator_y())
+		return
+
 
 	draw_cursor: (mousePos) ->
 		if util.is_on_stream(mousePos)
@@ -404,11 +425,10 @@ util =
 		return
 
 	operator_y: ->
-		y = 0
-		for i of streams
-			sy = streams[i].y
-			y = sy if sy > y
-		y + eventRadius * 3
+		# Find maximum value of y
+		streams.reduce((accum, stream) ->
+			if stream.y > accum then stream.y else accum
+		, 0) + eventRadius * 3 # And add 3 * eventRadius spacing
 
 	output_stream_y: ->
 		ypos = 0
