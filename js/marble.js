@@ -134,9 +134,9 @@
           case "Error":
             return Rx.ReactiveTest.onError;
           case "Complete":
-            return Rx.ReactiveTest.onComplete;
+            return Rx.ReactiveTest.onCompleted;
           default:
-            return console.log("Something wrong with notification type");
+            throw "Something wrong with notification type";
         }
       })();
       return notifType(notif.x, notif);
@@ -154,9 +154,7 @@
     	for i of streams
     		gfx.draw_stream streams[i]
      */
-    streams.concat(create_output_stream()).forEach(function(stream) {
-      return gfx.draw_stream(stream);
-    });
+    streams.concat(create_output_stream()).forEach(gfx.draw_stream, gfx);
     util.set_pointer(mousePos);
     gfx.draw_cursor(mousePos);
     gfx.draw_operator(canvas);
@@ -207,10 +205,11 @@
 
   setComplete = function(mousePos) {
     if (mousePos.x - eventRadius > currStream.start && mousePos.x + eventRadius < currStream.maxEnd) {
-      return currStream.notifications.push({
+      currStream.notifications.push({
         x: mousePos.x,
         type: "Complete"
-      }).filter(function(notif) {
+      });
+      return currStream.notifications = currStream.notifications.filter(function(notif) {
         return validNotification(notif);
       });
     }
@@ -245,9 +244,10 @@
     }
 
     Graphics.prototype.draw_stream = function(stream) {
-      var notif, op_y, _i, _len, _ref;
+      var maxEnd, notif, op_y, _i, _len, _ref;
+      console.log(stream);
       op_y = util.operator_y();
-      this.draw_arrow(stream.start, stream.maxEnd - 10, stream.y);
+      maxEnd = canvas.width - 10;
       _ref = stream.notifications;
       for (_i = 0, _len = _ref.length; _i < _len; _i++) {
         notif = _ref[_i];
@@ -260,8 +260,10 @@
             break;
           case "Complete":
             this.draw_complete(stream, notif);
+            maxEnd = notif.x + 2 * eventRadius;
         }
       }
+      this.draw_arrow(stream.start, maxEnd, stream.y);
     };
 
     Graphics.prototype.draw_event = function(stream, event, isOutput) {

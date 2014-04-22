@@ -126,8 +126,8 @@ stream_to_observable = (stream, scheduler) ->
 			when "Error"
 				Rx.ReactiveTest.onError
 			when "Complete"
-				Rx.ReactiveTest.onComplete
-			else console.log("Something wrong with notification type")
+				Rx.ReactiveTest.onCompleted
+			else throw "Something wrong with notification type"
 		notifType(notif.x, notif)
 	)
 
@@ -146,7 +146,7 @@ render = (canvas, mousePos) ->
 	for i of streams
 		gfx.draw_stream streams[i]
 	###
-	streams.concat(create_output_stream()).forEach((stream) -> gfx.draw_stream(stream))
+	streams.concat(create_output_stream()).forEach(gfx.draw_stream, gfx)
 	util.set_pointer mousePos
 	gfx.draw_cursor mousePos
 	gfx.draw_operator canvas
@@ -192,7 +192,8 @@ setComplete = (mousePos) ->
 		currStream.notifications.push(
 			x: mousePos.x
 			type: "Complete"
-		).filter((notif) -> validNotification(notif))
+		)
+		currStream.notifications= currStream.notifications.filter((notif) -> validNotification(notif))
 
 ###
 # Remove notifications that are after the currStream's end
@@ -218,14 +219,19 @@ removeNotification = (notifIdx) ->
 class Graphics
 	constructor: (@ctx) ->
 	draw_stream: (stream) ->
+		console.log(stream)
 		op_y = util.operator_y()
-		this.draw_arrow stream.start, stream.maxEnd - 10, stream.y
+		maxEnd = canvas.width - 10
 		for notif in stream.notifications
 			switch notif.type
 				when "Event" then this.draw_event stream, notif
 				when "Error" then this.draw_error stream, notif
-				when "Complete" then this.draw_complete stream, notif
+				when "Complete" 
+					this.draw_complete stream, notif
+					maxEnd = notif.x + 2*eventRadius
 		# If there is an end to the stream
+		this.draw_arrow stream.start, maxEnd, stream.y
+
 		return
 
 	draw_event: (stream, event, isOutput) ->
