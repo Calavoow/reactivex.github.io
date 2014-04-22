@@ -163,12 +163,24 @@ addEvent = (mousePos) ->
 	return
 
 addError = (mousePos) ->
-	if validNotification(mousePos)
+	if mousePos.x - eventRadius > currStream.start and mousePos.x + eventRadius < currStream.maxEnd
 		currStream.notifications.push
 			x: mousePos.x
 			color: util.random_color()
 			type: "Error"
+
+		# Remove invalid notifications
+		currStream.notifications = currStream.notifications.filter((notif) -> validNotification(notif))
 	return
+
+setComplete = (mousePos) ->
+	if mousePos.x - eventRadius > currStream.start and mousePos.x + eventRadius < currStream.maxEnd
+		currStream.notifications.push
+			x: mousePos.x
+			type: "Complete"
+
+		currStream.notifications = currStream.notifications.filter((notif) -> validNotification(notif))
+	return 
 
 ###
 # Invariant property of Notifications
@@ -176,24 +188,18 @@ addError = (mousePos) ->
 # Requires a .x property on given events and errors.
 ###
 validNotification = (notif) ->
-	completionNotifs = currStream.notifications.filter((curNotif) -> curNotif.type is "Complete")
+	# The notifications the may only occur once on a stream.
+	uniqueNotifs = currStream.notifications.filter((curNotif) ->
+		curNotif.type is "Error" or curNotif.type is "Complete"
+	)
 	# Filter out any older completion notifications from the stream.
-	if notif.type is "Complete"
+	if notif.type is "Error" or notif.type is "Complete"
 		# Only the last completion is valid.
-		notif.x is completionNotifs[completionNotifs.length-1].x 
+		notif.x is uniqueNotifs[uniqueNotifs.length-1].x 
 	else
-		# It should NOT be the case that the event happens after any completionNotif.
-		notifBeforeEnd = not completionNotifs.some((completionNotif) -> notif.x + eventRadius >= completionNotif.x)
+		# It should NOT be the case that the event happens after any uniqueNotif.
+		notifBeforeEnd = not uniqueNotifs.some((uniqueNotif) -> notif.x + eventRadius >= uniqueNotif.x)
 		notifBeforeEnd and notif.x - eventRadius > currStream.start
-
-
-setComplete = (mousePos) ->
-	if mousePos.x - eventRadius > currStream.start and mousePos.x + eventRadius < currStream.maxEnd
-		currStream.notifications.push(
-			x: mousePos.x
-			type: "Complete"
-		)
-		currStream.notifications= currStream.notifications.filter((notif) -> validNotification(notif))
 
 ###
 # Remove notifications that are after the currStream's end

@@ -172,11 +172,26 @@
   };
 
   addError = function(mousePos) {
-    if (validNotification(mousePos)) {
+    if (mousePos.x - eventRadius > currStream.start && mousePos.x + eventRadius < currStream.maxEnd) {
       currStream.notifications.push({
         x: mousePos.x,
         color: util.random_color(),
         type: "Error"
+      });
+      currStream.notifications = currStream.notifications.filter(function(notif) {
+        return validNotification(notif);
+      });
+    }
+  };
+
+  setComplete = function(mousePos) {
+    if (mousePos.x - eventRadius > currStream.start && mousePos.x + eventRadius < currStream.maxEnd) {
+      currStream.notifications.push({
+        x: mousePos.x,
+        type: "Complete"
+      });
+      currStream.notifications = currStream.notifications.filter(function(notif) {
+        return validNotification(notif);
       });
     }
   };
@@ -189,29 +204,17 @@
    */
 
   validNotification = function(notif) {
-    var completionNotifs, notifBeforeEnd;
-    completionNotifs = currStream.notifications.filter(function(curNotif) {
-      return curNotif.type === "Complete";
+    var notifBeforeEnd, uniqueNotifs;
+    uniqueNotifs = currStream.notifications.filter(function(curNotif) {
+      return curNotif.type === "Error" || curNotif.type === "Complete";
     });
-    if (notif.type === "Complete") {
-      return notif.x === completionNotifs[completionNotifs.length - 1].x;
+    if (notif.type === "Error" || notif.type === "Complete") {
+      return notif.x === uniqueNotifs[uniqueNotifs.length - 1].x;
     } else {
-      notifBeforeEnd = !completionNotifs.some(function(completionNotif) {
-        return notif.x + eventRadius >= completionNotif.x;
+      notifBeforeEnd = !uniqueNotifs.some(function(uniqueNotif) {
+        return notif.x + eventRadius >= uniqueNotif.x;
       });
       return notifBeforeEnd && notif.x - eventRadius > currStream.start;
-    }
-  };
-
-  setComplete = function(mousePos) {
-    if (mousePos.x - eventRadius > currStream.start && mousePos.x + eventRadius < currStream.maxEnd) {
-      currStream.notifications.push({
-        x: mousePos.x,
-        type: "Complete"
-      });
-      return currStream.notifications = currStream.notifications.filter(function(notif) {
-        return validNotification(notif);
-      });
     }
   };
 
