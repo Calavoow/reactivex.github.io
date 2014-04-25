@@ -14,22 +14,8 @@ window.onload = ->
 	# init globals
 	canvas = document.getElementById("rxCanvas")
 	streams = [
-		{
-			shape: "circle"
-			y: canvas.height / 8
-			notifications: []
-			start: 10
-			maxEnd: canvas.width - 10
-			isOutput: false
-		}
-		{
-			shape: "square"
-			y: canvas.height / 8 * 3
-			notifications: []
-			start: 10
-			maxEnd: canvas.width - 10 
-			isOutput: false
-		}
+		new Stream(canvas.height / 8, 10, canvas.width - 10, false, "circle")
+		new Stream(canvas.height / 8 * 3, 10, canvas.width - 10, false, "square")
 	]
 	currStream = streams[0]
 	
@@ -44,12 +30,7 @@ window.onload = ->
 	canvas.addEventListener "mousedown", ((evt) ->
 		mousePos = util.setMousePos(canvas, evt)
 		if util.diff(mousePos.y, currStream.y) < 2 * eventRadius
-			# Remove the notification at the current position, if it exists.
-			notifIdx = util.onNotification(mousePos)
-			if notifIdx?
-				removeNotification(notifIdx)
-			else
-				addEvent(mousePos)
+			currStream.addEvent(mousePos)
 			render canvas, mousePos
 		return
 	), false
@@ -66,17 +47,13 @@ window.onload = ->
 	canvas.addEventListener "keypress", ((evt) ->
 		mousePos = util.getMousePos()
 		if util.diff(mousePos.y, currStream.y) < 2 * eventRadius
-			notifIdx = util.onNotification(mousePos)
-			if notifIdx?
-				removeNotification(notifIdx)
-			else
-				switch evt.which
-					when 101
-						# E pressed
-						addError(mousePos)
-					when 99 
-						# C pressed
-						setComplete(mousePos)
+			switch evt.which
+				when 101
+					# E pressed
+					currStream.setError(mousePos)
+				when 99 
+					# C pressed
+					currStream.setComplete(mousePos)
 		render canvas, mousePos
 		return
 	), false
@@ -85,6 +62,84 @@ window.onload = ->
 	# bootstrap rendering
 	render canvas, util.getMousePos()
 	return
+
+class Stream
+	# The @shape argument is for output streams.
+	constructor: (@y, @start, @maxEnd, @isOutput, @shape) ->
+		# If the stream is an input, it needs to have a shape.
+		if not @isOuput
+			throw Error("Expected shape") if not @shape?
+
+		@notifications = []
+		this
+	
+	addEvent: (mousePos) ->
+		if this.removeNotif(mousePos)
+		else if this.validNotification(mousePos)
+			@notifications.push
+				x: mousePos.x
+				color: util.random_color()
+				shape: @shape
+				type: "Event"
+		return
+
+	setError: (mousePos) ->
+		this.setUnique(mousePos,
+			x: mousePos.x
+			color: util.random_color()
+			type: "Error"
+		)
+
+	setComplete: (mousePos) ->
+		this.setUnique(mousePos,
+			x: mousePos.x
+			type: "Complete"
+		)
+	
+	removeNotif: (mousePos) ->
+		notifIdx= this.onNotification(mousePos)
+		if notifIdx?
+			currStream.notifications.splice(notifIdx,1)
+			return true
+		else
+			return false
+
+	setUnique: (mousePos, uniqueNotif) ->
+		if this.removeNotif(mousePos)
+		else if mousePos.x - eventRadius > @start and mousePos.x + eventRadius < @maxEnd
+			@notifications.push uniqueNotif
+
+		# Make sure there is only one unique notification in the stream.
+		@notifications = @notifications.filter(this.validNotification, this)
+		return this
+
+	###
+	# Invariant property of Notifications
+	#
+	# Requires a .x property on given events and errors.
+	###
+	validNotification: (notif) ->
+		# The notifications that may only occur once on a stream.
+		uniqueNotifs = currStream.notifications.filter((curNotif) ->
+			curNotif.type is "Error" or curNotif.type is "Complete"
+		)
+		# Filter out any older completion notifications from the stream.
+		if notif.type is "Error" or notif.type is "Complete"
+			# Only the last completion is valid.
+			notif.x is uniqueNotifs[uniqueNotifs.length-1].x 
+		else
+			# It should NOT be the case that the event happens after any uniqueNotif.
+			notifBeforeEnd = not uniqueNotifs.some((uniqueNotif) -> notif.x + eventRadius >= uniqueNotif.x)
+			notifBeforeEnd and notif.x - eventRadius > currStream.start
+
+	###
+	# Find if the mouse is on a notification in this stream.
+	###
+	onNotification: (mousePos) ->
+		for notif, i in @notifications
+			if util.diff(notif.x, mousePos.x) < 2 * eventRadius
+				return i
+		return null
 
 ###
 # LOGIC
@@ -153,71 +208,6 @@ render = (canvas, mousePos) ->
 	# gfx.draw_stream create_output_stream() 
 	return
 
-addEvent = (mousePos) ->
-	if validNotification(mousePos)
-		currStream.notifications.push
-			x: mousePos.x
-			color: util.random_color()
-			shape: currStream.shape
-			type: "Event"
-	return
-
-addError = (mousePos) ->
-	if mousePos.x - eventRadius > currStream.start and mousePos.x + eventRadius < currStream.maxEnd
-		currStream.notifications.push
-			x: mousePos.x
-			color: util.random_color()
-			type: "Error"
-
-		# Remove invalid notifications
-		currStream.notifications = currStream.notifications.filter((notif) -> validNotification(notif))
-	return
-
-setComplete = (mousePos) ->
-	if mousePos.x - eventRadius > currStream.start and mousePos.x + eventRadius < currStream.maxEnd
-		currStream.notifications.push
-			x: mousePos.x
-			type: "Complete"
-
-		currStream.notifications = currStream.notifications.filter((notif) -> validNotification(notif))
-	return 
-
-###
-# Invariant property of Notifications
-#
-# Requires a .x property on given events and errors.
-###
-validNotification = (notif) ->
-	# The notifications the may only occur once on a stream.
-	uniqueNotifs = currStream.notifications.filter((curNotif) ->
-		curNotif.type is "Error" or curNotif.type is "Complete"
-	)
-	# Filter out any older completion notifications from the stream.
-	if notif.type is "Error" or notif.type is "Complete"
-		# Only the last completion is valid.
-		notif.x is uniqueNotifs[uniqueNotifs.length-1].x 
-	else
-		# It should NOT be the case that the event happens after any uniqueNotif.
-		notifBeforeEnd = not uniqueNotifs.some((uniqueNotif) -> notif.x + eventRadius >= uniqueNotif.x)
-		notifBeforeEnd and notif.x - eventRadius > currStream.start
-
-###
-# Remove notifications that are after the currStream's end
-cleanNotifications = ->
-	# Do not perform in place modifications while looping
-	currStream.notifications = currStream.notifications.filter( (notif) ->
-		val = validNotification(notif)
-		console.log(val)
-		return val
-	)
-	return
-###
-
-# Remove a notification by id from the currStream
-removeNotification = (notifIdx) ->
-	console.log("Removing notification" + notifIdx)
-	currStream.notifications.splice(notifIdx,1)
-	return
 
 ###
 # GRAPHICS
@@ -225,7 +215,6 @@ removeNotification = (notifIdx) ->
 class Graphics
 	constructor: (@ctx) ->
 	draw_stream: (stream) ->
-		console.log(stream)
 		op_y = util.operator_y()
 		maxEnd = canvas.width - 10
 		for notif in stream.notifications
@@ -267,7 +256,7 @@ class Graphics
 
 	draw_cursor: (mousePos) ->
 		if util.is_on_stream(mousePos)
-			isMarked = util.onNotification(mousePos)
+			isMarked = currStream.onNotification(mousePos)
 			switch currStream.shape
 				when "circle"
 					this.draw_circle mousePos.x, currStream.y, "red", isMarked?
@@ -407,11 +396,6 @@ util =
 	diff: (a, b) ->
 		Math.abs a - b
 
-	onNotification: (mousePos) ->
-		for i of currStream.notifications
-			evt = currStream.notifications[i]
-			return i if this.diff(evt.x, mousePos.x) < 2 * eventRadius
-		return null
 	
 	pos:
 		x: 0
