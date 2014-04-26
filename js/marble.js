@@ -21,8 +21,17 @@
    */
 
   window.onload = function() {
+    var streamJson;
     canvas = document.getElementById("rxCanvas");
-    streams = [new Stream(canvas.height / 8, 10, canvas.width - 10, false, "circle"), new Stream(canvas.height / 8 * 3, 10, canvas.width - 10, false, "square")];
+    streamJson = util.getJson("merge.json");
+    streams = streamJson["streams"].map(Stream.fromJson, Stream);
+
+    /*
+    	streams = [
+    		new Stream(canvas.height / 8, 10, canvas.width - 10, false, "circle")
+    		new Stream(canvas.height / 8 * 3, 10, canvas.width - 10, false, "square")
+    	]
+     */
     currStream = streams[0];
     canvas.addEventListener("mousemove", (function(evt) {
       var mousePos;
@@ -165,6 +174,18 @@
         }
       }
       return null;
+    };
+
+    Stream.fromJson = function(json) {
+      var stream;
+      stream = new Stream(util.next_available_y(), json.start, json.maxEnd, false, json.shape);
+      json.notifications.forEach(function(notif) {
+        if (notif["color"] == null) {
+          return notif.color = util.random_color();
+        }
+      });
+      stream.notifications = json.notifications;
+      return stream;
     };
 
     return Stream;
@@ -499,6 +520,21 @@
         i++;
       }
       return color;
+    },
+    _y_counter: 0,
+    next_available_y: function() {
+      return 20 + eventRadius + util._y_counter++ * (2 * eventRadius + 20);
+    },
+    httpGet: function(theUrl) {
+      var xmlHttp;
+      xmlHttp = null;
+      xmlHttp = new XMLHttpRequest();
+      xmlHttp.open("GET", theUrl, false);
+      xmlHttp.send(null);
+      return xmlHttp.responseText;
+    },
+    getJson: function(url) {
+      return JSON.parse(util.httpGet(url));
     }
   };
 

@@ -1,0 +1,24 @@
+{
+	"streams": [
+		{
+			"start": 10,
+			"maxEnd": 500,
+			"notifications": [
+				{ "x": 100, "type": "Event", "shape": "circle", "color": "#123456"},
+				{ "x": 200, "type": "Event", "shape": "circle", "color": "#111111" },
+				{ "x": 320, "type": "Complete", "shape": "circle" }
+			],
+			"shape": "circle"
+		},
+		{
+			"start": 10,
+			"maxEnd": 1000,
+			"notifications": [
+				{ "x": 150, "type": "Event", "shape": "square" },
+				{ "x": 250, "type": "Event", "shape": "square" },
+				{ "x": 350, "type": "Error", "shape": "square" }
+			],
+			"shape": "square"
+		}
+	]
+}

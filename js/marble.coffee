@@ -13,10 +13,11 @@ eventRadius = 20
 window.onload = ->
 	# init globals
 	canvas = document.getElementById("rxCanvas")
-	streams = [
-		new Stream(canvas.height / 8, 10, canvas.width - 10, false, "circle")
-		new Stream(canvas.height / 8 * 3, 10, canvas.width - 10, false, "square")
-	]
+
+	# read json file
+	
+	streamJson = util.getJson("merge.json")
+	streams = streamJson["streams"].map(Stream.fromJson, Stream)
 	currStream = streams[0]
 	
 	# register event handlers
@@ -140,6 +141,23 @@ class Stream
 			if util.diff(notif.x, mousePos.x) < 2 * eventRadius
 				return i
 		return null
+	
+	@fromJson: (json) ->
+		stream = new Stream(
+			util.next_available_y(),
+			json.start,
+			json.maxEnd,
+			false,
+			json.shape
+		)
+		
+		# Set a color for notifications missing an explicit one.
+		json.notifications.forEach( (notif) ->
+			if not notif["color"]?
+				notif.color = util.random_color()
+		)
+		stream.notifications = json.notifications
+		return stream
 
 ###
 # LOGIC
@@ -378,7 +396,7 @@ class Graphics
 ###
 # UTILITIES
 ###
-util = 
+util =
 	getCurrentStream: (mousePos) ->
 		minDistance = Number.POSITIVE_INFINITY
 		selectedStream = currStream
@@ -442,3 +460,18 @@ util =
 			color += letters[Math.round(Math.random() * 15)]
 			i++
 		color
+	
+	_y_counter: 0
+	next_available_y: ->
+		20 + eventRadius + util._y_counter++ * (2 * eventRadius + 20)
+
+	httpGet: (theUrl) ->
+    	xmlHttp = null
+
+    	xmlHttp = new XMLHttpRequest()
+    	xmlHttp.open( "GET", theUrl, false )
+    	xmlHttp.send( null )
+    	return xmlHttp.responseText
+
+    getJson: (url) ->
+    	JSON.parse(util.httpGet(url))
