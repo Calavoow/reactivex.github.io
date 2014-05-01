@@ -9,13 +9,11 @@ eventRadius = 20
 ###
 # MAIN
 ###
-
 window.onload = ->
 	# init globals
 	canvas = document.getElementById("rxCanvas")
 
 	# read json file
-	
 	streamJson = util.getJson("merge.json")
 	streams = streamJson["streams"].map(Stream.fromJson, Stream)
 	currStream = streams[0]
@@ -64,7 +62,7 @@ window.onload = ->
 	render canvas, util.getMousePos()
 	return
 
-class Stream
+class window.Stream
 	# The @shape argument is for output streams.
 	constructor: (@y, @start, @maxEnd, @isOutput, @shape) ->
 		# If the stream is an input, it needs to have a shape.
@@ -141,6 +139,20 @@ class Stream
 			if util.diff(notif.x, mousePos.x) < 2 * eventRadius
 				return i
 		return null
+
+	toObservable: (scheduler) ->
+		notifs = @notifications.map((notif) ->
+			notifType = switch notif.type
+				when "Event"
+					Rx.ReactiveTest.onNext
+				when "Error"
+					Rx.ReactiveTest.onError
+				when "Complete"
+					Rx.ReactiveTest.onCompleted
+				else throw Error "Something wrong with notification type"
+			notifType(notif.x, notif)
+		)
+		scheduler.createColdObservable notifs
 	
 	@fromJson: (json) ->
 		stream = new Stream(
@@ -164,8 +176,11 @@ class Stream
 ###
 create_output_stream = ->
 	scheduler = new Rx.TestScheduler()
+	###
 	xs = stream_to_observable(streams[0], scheduler)
 	ys = stream_to_observable(streams[1], scheduler)
+	###
+	inputStreams = streams.map((stream) -> stream.toObservable scheduler)
 	output_stream =
 		shape: "unknown"
 		y: util.output_stream_y()
@@ -174,7 +189,8 @@ create_output_stream = ->
 		end: 0
 		isOutput: true
 
-	xs.merge(ys).subscribe ((evt) ->
+	inputStreams.reduce((accum, obs) -> accum.merge(obs))
+	.subscribe ((evt) ->
 		output_stream.notifications.push evt
 		return
 	), ((err) ->
@@ -191,34 +207,11 @@ create_output_stream = ->
 	scheduler.start()
 	output_stream
 
-stream_to_observable = (stream, scheduler) ->
-	notifications = stream.notifications.map((notif) ->
-		notifType = switch notif.type
-			when "Event"
-				Rx.ReactiveTest.onNext
-			when "Error"
-				Rx.ReactiveTest.onError
-			when "Complete"
-				Rx.ReactiveTest.onCompleted
-			else throw "Something wrong with notification type"
-		notifType(notif.x, notif)
-	)
-
-	scheduler.createColdObservable notifications
-
 render = (canvas, mousePos) ->
 	ctx = canvas.getContext("2d")
 	ctx.clearRect 0, 0, canvas.width, canvas.height
 	gfx = new Graphics(ctx)
 	
-	#var message = mousePos.x + ',' + mousePos.y;
-	#		ctx.font = '18pt Calibri';
-	#		ctx.fillStyle = 'black';
-	#		ctx.fillText(message, 10, 25);
-	###
-	for i of streams
-		gfx.draw_stream streams[i]
-	###
 	streams.concat(create_output_stream()).forEach(gfx.draw_stream, gfx)
 	util.set_pointer mousePos
 	gfx.draw_cursor mousePos
@@ -230,7 +223,7 @@ render = (canvas, mousePos) ->
 ###
 # GRAPHICS
 ###
-class Graphics
+class window.Graphics
 	constructor: (@ctx) ->
 	draw_stream: (stream) ->
 		op_y = util.operator_y()
@@ -396,7 +389,7 @@ class Graphics
 ###
 # UTILITIES
 ###
-util =
+window.util =
 	getCurrentStream: (mousePos) ->
 		minDistance = Number.POSITIVE_INFINITY
 		selectedStream = currStream

@@ -5,7 +5,7 @@
  */
 
 (function() {
-  var Graphics, Stream, canvas, create_output_stream, currStream, eventRadius, render, stream_to_observable, streams, util;
+  var canvas, create_output_stream, currStream, eventRadius, render, streams;
 
   canvas = void 0;
 
@@ -25,13 +25,6 @@
     canvas = document.getElementById("rxCanvas");
     streamJson = util.getJson("merge.json");
     streams = streamJson["streams"].map(Stream.fromJson, Stream);
-
-    /*
-    	streams = [
-    		new Stream(canvas.height / 8, 10, canvas.width - 10, false, "circle")
-    		new Stream(canvas.height / 8 * 3, 10, canvas.width - 10, false, "square")
-    	]
-     */
     currStream = streams[0];
     canvas.addEventListener("mousemove", (function(evt) {
       var mousePos;
@@ -72,7 +65,7 @@
     render(canvas, util.getMousePos());
   };
 
-  Stream = (function() {
+  window.Stream = (function() {
     function Stream(y, start, maxEnd, isOutput, shape) {
       this.y = y;
       this.start = start;
@@ -176,6 +169,27 @@
       return null;
     };
 
+    Stream.prototype.toObservable = function(scheduler) {
+      var notifs;
+      notifs = this.notifications.map(function(notif) {
+        var notifType;
+        notifType = (function() {
+          switch (notif.type) {
+            case "Event":
+              return Rx.ReactiveTest.onNext;
+            case "Error":
+              return Rx.ReactiveTest.onError;
+            case "Complete":
+              return Rx.ReactiveTest.onCompleted;
+            default:
+              throw Error("Something wrong with notification type");
+          }
+        })();
+        return notifType(notif.x, notif);
+      });
+      return scheduler.createColdObservable(notifs);
+    };
+
     Stream.fromJson = function(json) {
       var stream;
       stream = new Stream(util.next_available_y(), json.start, json.maxEnd, false, json.shape);
@@ -198,10 +212,16 @@
    */
 
   create_output_stream = function() {
-    var output_stream, scheduler, xs, ys;
+    var inputStreams, output_stream, scheduler;
     scheduler = new Rx.TestScheduler();
-    xs = stream_to_observable(streams[0], scheduler);
-    ys = stream_to_observable(streams[1], scheduler);
+
+    /*
+    	xs = stream_to_observable(streams[0], scheduler)
+    	ys = stream_to_observable(streams[1], scheduler)
+     */
+    inputStreams = streams.map(function(stream) {
+      return stream.toObservable(scheduler);
+    });
     output_stream = {
       shape: "unknown",
       y: util.output_stream_y(),
@@ -210,7 +230,9 @@
       end: 0,
       isOutput: true
     };
-    xs.merge(ys).subscribe((function(evt) {
+    inputStreams.reduce(function(accum, obs) {
+      return accum.merge(obs);
+    }).subscribe((function(evt) {
       output_stream.notifications.push(evt);
     }), (function(err) {
       output_stream.notifications.push(err);
@@ -226,37 +248,11 @@
     return output_stream;
   };
 
-  stream_to_observable = function(stream, scheduler) {
-    var notifications;
-    notifications = stream.notifications.map(function(notif) {
-      var notifType;
-      notifType = (function() {
-        switch (notif.type) {
-          case "Event":
-            return Rx.ReactiveTest.onNext;
-          case "Error":
-            return Rx.ReactiveTest.onError;
-          case "Complete":
-            return Rx.ReactiveTest.onCompleted;
-          default:
-            throw "Something wrong with notification type";
-        }
-      })();
-      return notifType(notif.x, notif);
-    });
-    return scheduler.createColdObservable(notifications);
-  };
-
   render = function(canvas, mousePos) {
     var ctx, gfx;
     ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     gfx = new Graphics(ctx);
-
-    /*
-    	for i of streams
-    		gfx.draw_stream streams[i]
-     */
     streams.concat(create_output_stream()).forEach(gfx.draw_stream, gfx);
     util.set_pointer(mousePos);
     gfx.draw_cursor(mousePos);
@@ -268,7 +264,7 @@
    * GRAPHICS
    */
 
-  Graphics = (function() {
+  window.Graphics = (function() {
     function Graphics(ctx) {
       this.ctx = ctx;
     }
@@ -447,7 +443,7 @@
    * UTILITIES
    */
 
-  util = {
+  window.util = {
     getCurrentStream: function(mousePos) {
       var distance, i, minDistance, selectedStream, stream;
       minDistance = Number.POSITIVE_INFINITY;
