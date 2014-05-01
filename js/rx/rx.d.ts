@@ -86,6 +86,7 @@ declare module Rx {
 		amb<T>(...sources: IPromise<T>[]): Observable<T>;
 		amb<T>(sources: Observable<T>[]): Observable<T>;
 		amb<T>(sources: IPromise<T>[]): Observable<T>;
+		fromEvent<T>(domObj: any, evt: string): Observable<T>;
 		onErrorResumeNext<T>(...sources: Observable<T>[]): Observable<T>;
 		onErrorResumeNext<T>(...sources: IPromise<T>[]): Observable<T>;
 		onErrorResumeNext<T>(sources: Observable<T>[]): Observable<T>;
