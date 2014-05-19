@@ -11,7 +11,6 @@ declare module Rx {
 		constructor();
 
 		createColdObservable<T>(...records: Recorded[]): Observable<T>;
-		createColdObservable<T>(records: Recorded[]): Observable<T>;
 		createHotObservable<T>(...records: Recorded[]): Observable<T>;
 		createObserver<T>(): MockObserver<T>;
 

@@ -35,13 +35,12 @@
     
 	// Aliases
 	var Scheduler = Rx.Scheduler,
-		PriorityQueue = Rx.Internals.PriorityQueue,
-		ScheduledItem = Rx.Internals.ScheduledItem,
-		SchedulePeriodicRecursive  = Rx.Internals.SchedulePeriodicRecursive,
+		PriorityQueue = Rx.internals.PriorityQueue,
+		ScheduledItem = Rx.internals.ScheduledItem,
+		SchedulePeriodicRecursive  = Rx.internals.SchedulePeriodicRecursive,
 		disposableEmpty = Rx.Disposable.empty,
-		inherits = Rx.Internals.inherits;
-
-	function defaultSubComparer(x, y) { return x - y; }
+		inherits = Rx.internals.inherits,
+    defaultSubComparer = Rx.helpers.defaultSubComparer;
 
     /** Provides a set of extension methods for virtual time scheduling. */
     Rx.VirtualTimeScheduler = (function (_super) {
