@@ -1,5 +1,4 @@
-///<reference path="../rx/rx-lite.d.ts"/>
-///<reference path="../rx/rx.d.ts"/>
+///<reference path="../rx/rx.lite.d.ts"/>
 ///<reference path="../rx/rx.testing.d.ts"/>
 
 var eventRadius = 20;
@@ -430,9 +429,7 @@ class Util {
 	/*
 	 * MAIN
 	 */
-	var mousePos: MousePos;
 	var currStream: Stream;
-
 
 	window.onload = function() {
 		var canvas = <HTMLCanvasElement> document.getElementById("rxCanvas");
@@ -451,6 +448,9 @@ class Util {
 					y: 0
 				};
 			});
+
+		var mousePos = new Rx.BehaviorSubject({x:0, y:0});
+		mousePosObs.subscribe(m);
 
 		mousePosObs.subscribe(
 			function (evt){
@@ -493,11 +493,9 @@ class Util {
 		render(canvas, mousePos, streams); 
 	};
 
-
-
-	/*
+	/**
 	 * LOGIC
-	 */
+	 **/
 	function create_output_stream(streams: Stream[], op_y: number) {
 		var inputStreams, output_stream, scheduler;
 		scheduler = new Rx.TestScheduler();

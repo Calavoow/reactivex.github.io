@@ -1,38 +1,47 @@
-///<reference path="../rx/rx-lite.d.ts"/>
-///<reference path="../rx/rx.d.ts"/>
+///<reference path="../rx/rx.lite.d.ts"/>
 ///<reference path="../rx/rx.testing.d.ts"/>
+var __extends = this.__extends || function (d, b) {
+    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
+    function __() { this.constructor = d; }
+    __.prototype = b.prototype;
+    d.prototype = new __();
+};
 var eventRadius = 20;
 
-var Evt = (function () {
-    function Evt(x, shape, color) {
+var Notification = (function () {
+    function Notification(x, color) {
         this.color = Util.random_color();
         this.x = x;
-        this.shape = shape;
         if (color)
             this.color = color;
+    }
+    return Notification;
+})();
+
+var Evt = (function (_super) {
+    __extends(Evt, _super);
+    function Evt(x, shape, color) {
+        _super.call(this, x, color);
+        this.shape = shape;
     }
     return Evt;
-})();
+})(Notification);
 
-var Err = (function () {
+var Err = (function (_super) {
+    __extends(Err, _super);
     function Err(x, color) {
-        this.color = Util.random_color();
-        this.x = x;
-        if (color)
-            this.color = color;
+        _super.call(this, x, color);
     }
     return Err;
-})();
+})(Notification);
 
-var Complete = (function () {
+var Complete = (function (_super) {
+    __extends(Complete, _super);
     function Complete(x, color) {
-        this.color = Util.random_color();
-        this.x = x;
-        if (color)
-            this.color = color;
+        _super.call(this, x, color);
     }
     return Complete;
-})();
+})(Notification);
 
 var Stream = (function () {
     function Stream(y, start, maxEnd, isOutput, shape) {
@@ -40,7 +49,8 @@ var Stream = (function () {
         this.start = start;
         this.maxEnd = maxEnd;
         this.isOutput = isOutput;
-        this.shape = shape;
+        if (shape)
+            this.shape = shape;
         if (!this.isOutput && this.shape == null) {
             throw Error("Expected shape");
         }
@@ -48,7 +58,7 @@ var Stream = (function () {
     }
     Stream.prototype.addEvent = function (mousePos) {
         if (this.removeNotif(mousePos)) {
-        } else if (this.validNotification(mousePos)) {
+        } else if (this.validNotification(new Notification(mousePos.x))) {
             this.notifications.push({
                 x: mousePos.x,
                 color: Util.random_color(),
@@ -164,47 +174,6 @@ var Stream = (function () {
     return Stream;
 })();
 
-/*
-* UTILITIES
-*/
-var MouseLocator = (function () {
-    function MouseLocator(canvas) {
-        this.pos = new MousePos(0, 0);
-
-        var mouseObs = Rx.Observable.fromEvent(canvas, 'mousemove');
-        mouseObs.subscribe(function (evt) {
-            this.setMousePos(canvas, evt);
-        }, function (err) {
-            throw Error(err);
-        }, function () {
-            throw Error("Mousemove completed");
-        });
-    }
-    MouseLocator.prototype.getMousePos = function () {
-        return this.pos;
-    };
-
-    MouseLocator.prototype.setMousePos = function (canvas, evt) {
-        var rect = canvas.getBoundingClientRect();
-
-        this.pos = evt != null ? {
-            x: evt.clientX - rect.left,
-            y: evt.clientY - rect.top
-        } : {
-            x: 0,
-            y: 0
-        };
-    };
-    return MouseLocator;
-})();
-
-var MousePos = (function () {
-    function MousePos(x, y) {
-        this.x = x;
-        this.y = y;
-    }
-    return MousePos;
-})();
 
 /**
 * GRAPHICS
@@ -259,8 +228,8 @@ var Graphics = (function () {
         }
     };
 
-    Graphics.prototype.draw_cursor = function (mousePos, streams) {
-        if (Util.is_on_stream(mousePos, streams)) {
+    Graphics.prototype.draw_cursor = function (mousePos, currStream) {
+        if (Util.is_on_stream(mousePos, currStream)) {
             var isMarked = currStream.onNotification(mousePos);
             switch (currStream.shape) {
                 case "circle":
@@ -388,20 +357,14 @@ var Util = (function () {
         return selectedStream;
     };
 
-    /*
-    static is_on_stream(mousePos : MousePos) {
-    return this.diff(mousePos.y, currStream.y) < 2 * eventRadius;
-    }
-    */
+    Util.is_on_stream = function (mousePos, stream) {
+        return this.diff(mousePos.y, stream.y) < 2 * eventRadius;
+    };
+
     Util.diff = function (a, b) {
         return Math.abs(a - b);
     };
 
-    /**
-    static set_pointer(mousePos) {
-    document.body.style.cursor = (this.is_on_stream(mousePos) && this.diff(mousePos.x, currStream.end) < 5 ? "ew-resize" : "auto");
-    }
-    */
     Util.operator_y = function (streams) {
         return streams.reduce(function (accum, stream) {
             if (stream.y > accum) {
@@ -455,36 +418,53 @@ var Util = (function () {
     /*
     * MAIN
     */
+    var currStream;
+
     window.onload = function () {
         var canvas = document.getElementById("rxCanvas");
         var streamJson = Util.getJson("merge.json");
-        streams = streamJson["streams"].map(Stream.fromJson, Stream);
-        currStream = streams[0];
-        canvas.addEventListener("mousemove", (function (evt) {
-            var mousePos;
-            mousePos = Util.setMousePos(canvas, evt);
-            currStream = Util.getCurrentStream(mousePos);
-            render(canvas, mousePos);
-        }), false);
-        canvas.addEventListener("mousedown", (function (evt) {
-            var mousePos;
-            mousePos = Util.setMousePos(canvas, evt);
+        var streams = streamJson["streams"].map(Stream.fromJson, Stream);
+        var currStream = streams[0];
+
+        var mousePosObs = Rx.Observable.fromEvent(canvas, 'mousemove').map(function (evt) {
+            var rect = canvas.getBoundingClientRect();
+            return evt != null ? {
+                x: evt.clientX - rect.left,
+                y: evt.clientY - rect.top
+            } : {
+                x: 0,
+                y: 0
+            };
+        });
+
+        var mousePos = new Rx.BehaviorSubject({ x: 0, y: 0 });
+        mousePosObs.subscribe(m);
+
+        mousePosObs.subscribe(function (evt) {
+            // Keep mousePos updated
+            mousePos = evt;
+
+            // Keep the current stream updated
+            currStream = Util.getCurrentStream(mousePos, streams);
+        });
+
+        var mouseDownObs = Rx.Observable.fromEvent(canvas, 'mousedown');
+        mouseDownObs.subscribe(function (evt) {
             if (Util.diff(mousePos.y, currStream.y) < 2 * eventRadius) {
                 currStream.addEvent(mousePos);
-                render(canvas, mousePos);
             }
-        }), false);
-        canvas.addEventListener("mouseout", (function (evt) {
-            var mousePos;
+        });
+
+        var mouseOutObs = Rx.Observable.fromEvent(canvas, 'mouseout');
+        mouseOutObs.subscribe(function (evt) {
             mousePos = {
                 x: -1337,
                 y: -1337
             };
-            render(canvas, mousePos);
-        }), false);
-        canvas.addEventListener("keypress", (function (evt) {
-            var mousePos;
-            mousePos = Util.getMousePos();
+        });
+
+        var keypressObs = Rx.Observable.fromEvent(canvas, 'keypress');
+        keypressObs.subscribe(function (evt) {
             if (Util.diff(mousePos.y, currStream.y) < 2 * eventRadius) {
                 switch (evt.which) {
                     case 101:
@@ -494,33 +474,24 @@ var Util = (function () {
                         currStream.setComplete(mousePos);
                 }
             }
-            render(canvas, mousePos);
-        }), false);
-        render(canvas, Util.getMousePos());
+        });
+
+        render(canvas, mousePos, streams);
     };
 
-    /*
+    /**
     * LOGIC
-    */
-    create_output_stream = function () {
+    **/
+    function create_output_stream(streams, op_y) {
         var inputStreams, output_stream, scheduler;
         scheduler = new Rx.TestScheduler();
 
-        /*
-        xs = stream_to_observable(streams[0], scheduler)
-        ys = stream_to_observable(streams[1], scheduler)
-        */
         inputStreams = streams.map(function (stream) {
             return stream.toObservable(scheduler);
         });
-        output_stream = {
-            shape: "unknown",
-            y: Util.output_stream_y(),
-            notifications: [],
-            start: 10,
-            end: 0,
-            isOutput: true
-        };
+        output_stream = new Stream(op_y, 10, 0, true);
+
+        // Combine the streams
         inputStreams.reduce(function (accum, obs) {
             return accum.merge(obs);
         }).subscribe((function (evt) {
@@ -537,16 +508,17 @@ var Util = (function () {
         });
         scheduler.start();
         return output_stream;
-    };
+    }
+    ;
 
-    render = function (canvas, mousePos) {
+    function render(canvas, mousePos, streams) {
         var ctx, gfx;
         ctx = canvas.getContext("2d");
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         gfx = new Graphics(ctx);
-        streams.concat(create_output_stream()).forEach(gfx.draw_stream, gfx);
-        Util.set_pointer(mousePos);
+        streams.concat(create_output_stream(streams, 400)).forEach(gfx.draw_stream, gfx);
         gfx.draw_cursor(mousePos);
         gfx.draw_operator(canvas);
-    };
+    }
+    ;
 }).call(this);
