@@ -49,26 +49,38 @@ class Stream {
 		this.notifications = [];
 	}
 
-	addEvent(mousePos : MousePos) : Stream {
-		if (this.removeNotif(mousePos)) {
+	addEvent(x: number) : Stream {
+		if (this.removeNotif(x)) {
 
-		} else if (this.validNotification(new Notification(mousePos.x))) {
-			this.notifications.push(new Evt(mousePos.x, this.shape));
+		} else if (this.validNotification(new Notification(x))) {
+			this.notifications.push(new Evt(x, this.shape));
 		}
 		return this;
 	}
 
-	setError(mousePos : MousePos) : Stream {
-		return this.setUnique(mousePos, new Err(mousePos.x));
+	setError(x: number) : Stream {
+		return this.setUnique(x, new Err(x));
 	}
 
-	setComplete(mousePos : MousePos) : Stream {
-		return this.setUnique(mousePos, new Complete(mousePos.x));
+	setComplete(x : number) : Stream {
+		return this.setUnique(x, new Complete(x));
 	}
 
-	removeNotif(mousePos : MousePos) : boolean {
-		var notifIdx;
-		notifIdx = this.onNotification(mousePos);
+	setUnique(x: number, uniqueNotif : Notification) : Stream {
+		if (this.removeNotif(x)) {
+
+		}
+		// If x is within the Stream bounds.
+		else if (x - eventRadius > this.start && x + eventRadius < this.maxEnd) {
+			this.notifications.push(uniqueNotif);
+			// Maintain the stream invariant property
+			this.notifications = this.notifications.filter(this.validNotification, this);
+		}
+		return this;
+	}
+
+	removeNotif(x: number) : boolean {
+		var notifIdx = this.onNotification(x);
 		if (notifIdx != null) {
 			this.notifications.splice(notifIdx, 1);
 			return true;
@@ -77,63 +89,56 @@ class Stream {
 		}
 	}
 
-	setUnique(mousePos : MousePos, uniqueNotif : Notification) : Stream {
-		if (this.removeNotif(mousePos)) {
-
-		} else if (mousePos.x - eventRadius > this.start && mousePos.x + eventRadius < this.maxEnd) {
-			this.notifications.push(uniqueNotif);
-		}
-		this.notifications = this.notifications.filter(this.validNotification, this);
-		return this;
-	}
-
-	/*
+	/**
 	 * Invariant property of Notifications
-	 *
-	 * Requires a .x property on given events and errors.
-	 */
+	 **/
 	validNotification(notif: Notification) : boolean {
-		var notifBeforeEnd, uniqueNotifs;
-		uniqueNotifs = this.notifications.filter(function(curNotif) {
-			return typeof notif === "Error" || typeof notif === "Complete";
-		});
-		if (typeof notif === "Error" || typeof notif === "Complete") {
-			return notif.x === uniqueNotifs[uniqueNotifs.length - 1].x;
+		// Contains all notifications that should be unique
+		var uniqueNotifs = this.notifications.filter(function(curNotif) {
+			return curNotif instanceof Err || curNotif instanceof Complete;
+		})
+		
+		// Check if there are notifications that should not be in the list.
+		if (notif instanceof Err || notif instanceof Complete) {
+			// If this notification is the last one added to uniqueNotifs, it is valid.
+			return notif.x === uniqueNotifs[uniqueNotifs.length - 1].x
 		} else {
-			notifBeforeEnd = !uniqueNotifs.some(function(uniqueNotif) {
-				return notif.x + eventRadius >= uniqueNotif.x;
-			});
-			return notifBeforeEnd && notif.x - eventRadius > this.start;
+			// If this Notification occurs before the latest unique notification, then that is part 1.
+			var notifBeforeEnd = !uniqueNotifs.some(function(uniqueNotif) {
+				return notif.x + eventRadius >= uniqueNotif.x
+			})
+			// And if it is after the start of the Stream then it is valid.
+			return notifBeforeEnd && notif.x - eventRadius > this.start
 		}
 	}
 
 
-	/*
+	/**
 	 * Find if the mouse is on a notification in this stream.
-	 */
-
-	onNotification(mousePos) {
-		var i, notif, _i, _len, _ref;
-		_ref = this.notifications;
-		for (i = _i = 0, _len = _ref.length; _i < _len; i = ++_i) {
-			notif = _ref[i];
-			if (Util.diff(notif.x, mousePos.x) < 2 * eventRadius) {
-				return i;
+	 * @return The index of the notification it is on otherwise null.
+	 **/
+	onNotification(x: number) : number {
+		for(var i in this.notifications) {
+			var notif = this.notifications[i]
+			if (Util.diff(notif.x, x) < 2 * eventRadius) {
+				return i
 			}
 		}
-		return null;
+		return null
 	}
-	
+
 	toObservable(scheduler : Rx.TestScheduler) : Rx.Observable<Notification> {
 		var notifs : Rx.Recorded[] = this.notifications.map(function(notif) {
-			var notifType
-			if(notif instanceof Evt) notifType = Rx.ReactiveTest.onNext
-			else if(notif instanceof Err) notifType = Rx.ReactiveTest.onError
-			else if(notif instanceof Complete) notifType = Rx.ReactiveTest.onCompleted
+			if(notif instanceof Evt)
+				return Rx.ReactiveTest.onNext(notif.x, notif)
+			else if(notif instanceof Err)
+				return Rx.ReactiveTest.onError(notif.x, notif)
+			else if(notif instanceof Complete)
+				return Rx.ReactiveTest.onCompleted(notif.x)
 			else throw Error("Something wrong with notification type")
-			return notifType(notif.x, notif)
-		});
-		return scheduler.createColdObservable.apply(notifs);
+		})
+
+		return scheduler.createColdObservable.apply(scheduler, notifs)
 	}
 
 	static fromJson(json, y : number) {
@@ -151,7 +156,7 @@ class Stream {
 		return stream;
 	}
 }
-	
+
 
 /*
  * UTILITIES
@@ -207,18 +212,18 @@ class Graphics {
 		if (stream.isOutput) {
 			this.draw_dashed_arrow(notif.x, op_y + 2.5 * eventRadius, stream.y - eventRadius);
 		} else {
-			this.draw_dashed_arrow(notif.x, stream.y + eventRadius, op_y); 
+			this.draw_dashed_arrow(notif.x, stream.y + eventRadius, op_y);
 		}
 	}
 
 	draw_cursor(mousePos: MousePos, currStream: Stream): void {
 		if (Util.is_on_stream(mousePos, currStream)) {
-			var isMarked = currStream.onNotification(mousePos);
+			var isMarked = (currStream.onNotification(mousePos.x) != null) || !currStream.validNotification(new Notification(mousePos.x))
 			switch (currStream.shape) {
 				case "circle":
-					return this.draw_circle(mousePos.x, currStream.y, "red", isMarked != null);
+					return this.draw_circle(mousePos.x, currStream.y, "red", isMarked)
 				case "square":
-					return this.draw_square(mousePos.x, currStream.y, "red", isMarked != null);
+					return this.draw_square(mousePos.x, currStream.y, "red", isMarked)
 			}
 		}
 	}
@@ -280,19 +285,19 @@ class Graphics {
 		this.ctx.stroke();
 	}
 
-	draw_circle(centerx, centery, color, isMarked) {
+	draw_circle(centerx : number, centery : number, color : string, isMarked : boolean) {
 		this.circle(centerx, centery, color, isMarked, function(ctx) {
 			ctx.stroke();
 		});
 	}
 
-	fill_circle(centerx, centery, color, isMarked) {
+	fill_circle(centerx : number, centery : number, color : string, isMarked : boolean) {
 		this.circle(centerx, centery, color, isMarked, function(ctx) {
 			ctx.fill();
 		});
 	}
 
-	circle(centerx, centery, color, isMarked, drawFunc) {
+	circle(centerx : number, centery : number, color : string, isMarked : boolean, drawFunc : (CanvasRenderingContext2D) => void) {
 		this.ctx.beginPath();
 		this.ctx.arc(centerx, centery, eventRadius, 0, 2 * Math.PI, false);
 		this.ctx.fillStyle = color;
@@ -340,6 +345,10 @@ class Util {
 		return selectedStream;
 	}
 
+	static test(...numbers : number[]) :number[] {
+		return numbers
+	}
+
 	static is_on_stream(mousePos : MousePos, stream: Stream) : boolean {
 		return this.diff(mousePos.y, stream.y) < 2 * eventRadius;
 	}
@@ -358,11 +367,10 @@ class Util {
 		}, 0) + eventRadius * 3;
 	}
 
-	static output_stream_y(streams : Stream[]) {
-		var i, stream, ypos;
-		ypos = 0;
-		for (i in streams) {
-			stream = streams[i];
+	static output_stream_y(streams : Stream[]) : number {
+		var ypos = 0;
+		for (var i in streams) {
+			var stream = streams[i];
 			if (stream.y > ypos) {
 				ypos = stream.y;
 			}
@@ -370,11 +378,10 @@ class Util {
 		return ypos + eventRadius * 9;
 	}
 
-	static random_color() {
-		var color, i, letters;
-		letters = "0123456789ABCDEF".split("");
-		color = "#";
-		i = 0;
+	static random_color() : string {
+		var letters = "0123456789ABCDEF".split("");
+		var color = "#";
+		var i = 0;
 		while (i < 6) {
 			color += letters[Math.round(Math.random() * 15)];
 			i++;
@@ -382,56 +389,54 @@ class Util {
 		return color;
 	}
 
-	static httpGet(theUrl) {
-		var xmlHttp;
-		xmlHttp = null;
-		xmlHttp = new XMLHttpRequest();
+	static httpGet(theUrl : string) : string {
+		var xmlHttp = new XMLHttpRequest();
 		xmlHttp.open("GET", theUrl, false);
 		xmlHttp.send(null);
 		return xmlHttp.responseText;
 	}
 
-	static getJson(url) {
+	static getJson(url : string) : JSON {
 		return JSON.parse(Util.httpGet(url));
 	}
 }
 
 (function() {
 	window.onload = function() {
-		var canvas = <HTMLCanvasElement> document.getElementById("rxCanvas");
-		var streamJson = Util.getJson("merge.json");
-		var y = 0 
+		var canvas = <HTMLCanvasElement> document.getElementById("rxCanvas")
+		var streamJson = Util.getJson("merge.json")
+		var y = 0
 		var streams : Stream[] = streamJson["streams"].map(function(json) {
 			y += 4*eventRadius
 			return Stream.fromJson(json, y)
-		});
+		})
 
 		var mousePosObs: Rx.Observable<MousePos> = Rx.Observable.fromEvent(canvas, 'mousemove')
 			.map(function(evt: MouseEvent) {
-				var rect = canvas.getBoundingClientRect();
+				var rect = canvas.getBoundingClientRect()
 				return evt != null ? {
 					x: evt.clientX - rect.left,
 					y: evt.clientY - rect.top
 				} : {
 					x: 0,
 					y: 0
-				};
-			});
+				}
+			})
 
-		var mousePos = new Rx.BehaviorSubject({x:0, y:0});
+		var mousePos = new Rx.BehaviorSubject({x:0, y:0})
 		mousePosObs.subscribe(function(mouseEvt) {
 			mousePos.onNext(mouseEvt);
-		});
+		})
 
-		var mouseDownObs = Rx.Observable.fromEvent(canvas, 'mousedown');
+		var mouseDownObs = Rx.Observable.fromEvent(canvas, 'mousedown')
 		mouseDownObs.subscribe(function(){
 			mousePos.take(1).subscribe(function(mouseEvt){
 				var currStream = Util.getCurrentStream(mouseEvt, streams);
 				if (Util.diff(mouseEvt.y, currStream.y) < 2 * eventRadius) {
-					currStream.addEvent(mouseEvt);
+					currStream.addEvent(mouseEvt.x)
 				}
-			});
-		});
+			})
+		})
 
 		var mouseOutObs = Rx.Observable.fromEvent(canvas, 'mouseout');
 		mouseOutObs.subscribe(function(evt){
@@ -448,10 +453,10 @@ class Util {
 				if (Util.diff(mouseEvt.y, currStream.y) < 2 * eventRadius) {
 					switch (evt.which) {
 						case 101:
-							currStream.setError(mouseEvt);
+							currStream.setError(mouseEvt.x);
 							break;
 						case 99:
-							currStream.setComplete(mouseEvt);
+							currStream.setComplete(mouseEvt.x);
 					}
 				}
 			});
@@ -461,7 +466,7 @@ class Util {
 		// On any user event, update the canvas.
 		mouseDownObs.merge(keypressObs).merge(mousePos).subscribe(function(){
 			mousePos.take(1).subscribe(function(mouseEvt) {
-				render(canvas, mouseEvt, streams); 
+				render(canvas, mouseEvt, streams);
 			});
 		});
 	};
@@ -469,30 +474,32 @@ class Util {
 	/**
 	 * LOGIC
 	 **/
-	function create_output_stream(streams: Stream[], op_y: number) {
-		var inputStreams, output_stream, scheduler;
-		scheduler = new Rx.TestScheduler();
+	function create_output_stream(streams: Stream[], op_y: number) : Stream {
+		var scheduler = new Rx.TestScheduler()
 
-		inputStreams = streams.map(function(stream) {
-			return stream.toObservable(scheduler);
-		});
-		output_stream = new Stream(op_y, 10, 0, true);
+		var inputStreams = streams.map(function(stream) {
+			return stream.toObservable(scheduler)
+		})
+		var output_stream = new Stream(op_y + 100, 10, 500, true)
 
 		// Combine the streams
-		inputStreams.reduce(function(accum, obs) {
-			return accum.merge(obs);
-		}).subscribe((function(evt) {
-			output_stream.notifications.push(evt);
-		}), (function(err) {
-			output_stream.notifications.push(err);
-			output_stream.maxEnd = err.x + 3 * eventRadius;
-		}), function() {
-			output_stream.notifications.push(new Complete(scheduler.now()));
-			output_stream.maxEnd = output_stream.end + 2 * eventRadius;
-		});
-		scheduler.start();
-		return output_stream;
-	};
+		var merged : Rx.Observable<Notification> = inputStreams.reduce(function(accum, obs) {
+			return accum.merge(obs)
+		})
+		merged.subscribe(function(evt) {
+			output_stream.addEvent(evt.x)
+		}, function(err) {
+			var now = scheduler.now()
+			output_stream.setError(now)
+			output_stream.maxEnd = now + 3 * eventRadius
+		}, function() {
+			var now = scheduler.now()
+			output_stream.setComplete(now)
+			output_stream.maxEnd = now + 2 * eventRadius
+		})
+		scheduler.start()
+		return output_stream
+	}
 
 	function render(canvas: HTMLCanvasElement, mousePos: MousePos, streams : Stream[]) {
 		var ctx = canvas.getContext("2d");
@@ -500,6 +507,6 @@ class Util {
 		var gfx = new Graphics(canvas, ctx);
 		streams.concat(create_output_stream(streams, 400)).forEach(gfx.draw_stream, gfx);
 		gfx.draw_cursor(mousePos, Util.getCurrentStream(mousePos, streams));
-		gfx.draw_operator(300);
+		gfx.draw_operator(200);
 	};
 }).call(this);

@@ -60,25 +60,35 @@ var Stream = (function () {
         }
         this.notifications = [];
     }
-    Stream.prototype.addEvent = function (mousePos) {
-        if (this.removeNotif(mousePos)) {
-        } else if (this.validNotification(new Notification(mousePos.x))) {
-            this.notifications.push(new Evt(mousePos.x, this.shape));
+    Stream.prototype.addEvent = function (x) {
+        if (this.removeNotif(x)) {
+        } else if (this.validNotification(new Notification(x))) {
+            this.notifications.push(new Evt(x, this.shape));
         }
         return this;
     };
 
-    Stream.prototype.setError = function (mousePos) {
-        return this.setUnique(mousePos, new Err(mousePos.x));
+    Stream.prototype.setError = function (x) {
+        return this.setUnique(x, new Err(x));
     };
 
-    Stream.prototype.setComplete = function (mousePos) {
-        return this.setUnique(mousePos, new Complete(mousePos.x));
+    Stream.prototype.setComplete = function (x) {
+        return this.setUnique(x, new Complete(x));
     };
 
-    Stream.prototype.removeNotif = function (mousePos) {
-        var notifIdx;
-        notifIdx = this.onNotification(mousePos);
+    Stream.prototype.setUnique = function (x, uniqueNotif) {
+        if (this.removeNotif(x)) {
+        } else if (x - eventRadius > this.start && x + eventRadius < this.maxEnd) {
+            this.notifications.push(uniqueNotif);
+
+            // Maintain the stream invariant property
+            this.notifications = this.notifications.filter(this.validNotification, this);
+        }
+        return this;
+    };
+
+    Stream.prototype.removeNotif = function (x) {
+        var notifIdx = this.onNotification(x);
         if (notifIdx != null) {
             this.notifications.splice(notifIdx, 1);
             return true;
@@ -87,44 +97,38 @@ var Stream = (function () {
         }
     };
 
-    Stream.prototype.setUnique = function (mousePos, uniqueNotif) {
-        if (this.removeNotif(mousePos)) {
-        } else if (mousePos.x - eventRadius > this.start && mousePos.x + eventRadius < this.maxEnd) {
-            this.notifications.push(uniqueNotif);
-        }
-        this.notifications = this.notifications.filter(this.validNotification, this);
-        return this;
-    };
-
-    /*
+    /**
     * Invariant property of Notifications
-    *
-    * Requires a .x property on given events and errors.
-    */
+    **/
     Stream.prototype.validNotification = function (notif) {
-        var notifBeforeEnd, uniqueNotifs;
-        uniqueNotifs = this.notifications.filter(function (curNotif) {
-            return typeof notif === "Error" || typeof notif === "Complete";
+        // Contains all notifications that should be unique
+        var uniqueNotifs = this.notifications.filter(function (curNotif) {
+            return curNotif instanceof Err || curNotif instanceof Complete;
         });
-        if (typeof notif === "Error" || typeof notif === "Complete") {
+
+        // Check if there are notifications that should not be in the list.
+        if (notif instanceof Err || notif instanceof Complete) {
+            // If this notification is the last one added to uniqueNotifs, it is valid.
             return notif.x === uniqueNotifs[uniqueNotifs.length - 1].x;
         } else {
-            notifBeforeEnd = !uniqueNotifs.some(function (uniqueNotif) {
+            // If this Notification occurs before the latest unique notification, then that is part 1.
+            var notifBeforeEnd = !uniqueNotifs.some(function (uniqueNotif) {
                 return notif.x + eventRadius >= uniqueNotif.x;
             });
+
+            // And if it is after the start of the Stream then it is valid.
             return notifBeforeEnd && notif.x - eventRadius > this.start;
         }
     };
 
-    /*
+    /**
     * Find if the mouse is on a notification in this stream.
-    */
-    Stream.prototype.onNotification = function (mousePos) {
-        var i, notif, _i, _len, _ref;
-        _ref = this.notifications;
-        for (i = _i = 0, _len = _ref.length; _i < _len; i = ++_i) {
-            notif = _ref[i];
-            if (Util.diff(notif.x, mousePos.x) < 2 * eventRadius) {
+    * @return The index of the notification it is on otherwise null.
+    **/
+    Stream.prototype.onNotification = function (x) {
+        for (var i in this.notifications) {
+            var notif = this.notifications[i];
+            if (Util.diff(notif.x, x) < 2 * eventRadius) {
                 return i;
             }
         }
@@ -133,18 +137,17 @@ var Stream = (function () {
 
     Stream.prototype.toObservable = function (scheduler) {
         var notifs = this.notifications.map(function (notif) {
-            var notifType;
             if (notif instanceof Evt)
-                notifType = Rx.ReactiveTest.onNext;
+                return Rx.ReactiveTest.onNext(notif.x, notif);
             else if (notif instanceof Err)
-                notifType = Rx.ReactiveTest.onError;
+                return Rx.ReactiveTest.onError(notif.x, notif);
             else if (notif instanceof Complete)
-                notifType = Rx.ReactiveTest.onCompleted;
+                return Rx.ReactiveTest.onCompleted(notif.x);
             else
                 throw Error("Something wrong with notification type");
-            return notifType(notif.x, notif);
         });
-        return scheduler.createColdObservable.apply(notifs);
+
+        return scheduler.createColdObservable.apply(scheduler, notifs);
     };
 
     Stream.fromJson = function (json, y) {
@@ -225,12 +228,12 @@ var Graphics = (function () {
 
     Graphics.prototype.draw_cursor = function (mousePos, currStream) {
         if (Util.is_on_stream(mousePos, currStream)) {
-            var isMarked = currStream.onNotification(mousePos);
+            var isMarked = (currStream.onNotification(mousePos.x) != null) || !currStream.validNotification(new Notification(mousePos.x));
             switch (currStream.shape) {
                 case "circle":
-                    return this.draw_circle(mousePos.x, currStream.y, "red", isMarked != null);
+                    return this.draw_circle(mousePos.x, currStream.y, "red", isMarked);
                 case "square":
-                    return this.draw_square(mousePos.x, currStream.y, "red", isMarked != null);
+                    return this.draw_square(mousePos.x, currStream.y, "red", isMarked);
             }
         }
     };
@@ -352,6 +355,14 @@ var Util = (function () {
         return selectedStream;
     };
 
+    Util.test = function () {
+        var numbers = [];
+        for (var _i = 0; _i < (arguments.length - 0); _i++) {
+            numbers[_i] = arguments[_i + 0];
+        }
+        return numbers;
+    };
+
     Util.is_on_stream = function (mousePos, stream) {
         return this.diff(mousePos.y, stream.y) < 2 * eventRadius;
     };
@@ -371,10 +382,9 @@ var Util = (function () {
     };
 
     Util.output_stream_y = function (streams) {
-        var i, stream, ypos;
-        ypos = 0;
-        for (i in streams) {
-            stream = streams[i];
+        var ypos = 0;
+        for (var i in streams) {
+            var stream = streams[i];
             if (stream.y > ypos) {
                 ypos = stream.y;
             }
@@ -383,10 +393,9 @@ var Util = (function () {
     };
 
     Util.random_color = function () {
-        var color, i, letters;
-        letters = "0123456789ABCDEF".split("");
-        color = "#";
-        i = 0;
+        var letters = "0123456789ABCDEF".split("");
+        var color = "#";
+        var i = 0;
         while (i < 6) {
             color += letters[Math.round(Math.random() * 15)];
             i++;
@@ -395,9 +404,7 @@ var Util = (function () {
     };
 
     Util.httpGet = function (theUrl) {
-        var xmlHttp;
-        xmlHttp = null;
-        xmlHttp = new XMLHttpRequest();
+        var xmlHttp = new XMLHttpRequest();
         xmlHttp.open("GET", theUrl, false);
         xmlHttp.send(null);
         return xmlHttp.responseText;
@@ -440,7 +447,7 @@ var Util = (function () {
             mousePos.take(1).subscribe(function (mouseEvt) {
                 var currStream = Util.getCurrentStream(mouseEvt, streams);
                 if (Util.diff(mouseEvt.y, currStream.y) < 2 * eventRadius) {
-                    currStream.addEvent(mouseEvt);
+                    currStream.addEvent(mouseEvt.x);
                 }
             });
         });
@@ -460,10 +467,10 @@ var Util = (function () {
                 if (Util.diff(mouseEvt.y, currStream.y) < 2 * eventRadius) {
                     switch (evt.which) {
                         case 101:
-                            currStream.setError(mouseEvt);
+                            currStream.setError(mouseEvt.x);
                             break;
                         case 99:
-                            currStream.setComplete(mouseEvt);
+                            currStream.setComplete(mouseEvt.x);
                     }
                 }
             });
@@ -481,30 +488,31 @@ var Util = (function () {
     * LOGIC
     **/
     function create_output_stream(streams, op_y) {
-        var inputStreams, output_stream, scheduler;
-        scheduler = new Rx.TestScheduler();
+        var scheduler = new Rx.TestScheduler();
 
-        inputStreams = streams.map(function (stream) {
+        var inputStreams = streams.map(function (stream) {
             return stream.toObservable(scheduler);
         });
-        output_stream = new Stream(op_y, 10, 0, true);
+        var output_stream = new Stream(op_y + 100, 10, 500, true);
 
         // Combine the streams
-        inputStreams.reduce(function (accum, obs) {
+        var merged = inputStreams.reduce(function (accum, obs) {
             return accum.merge(obs);
-        }).subscribe((function (evt) {
-            output_stream.notifications.push(evt);
-        }), (function (err) {
-            output_stream.notifications.push(err);
-            output_stream.maxEnd = err.x + 3 * eventRadius;
-        }), function () {
-            output_stream.notifications.push(new Complete(scheduler.now()));
-            output_stream.maxEnd = output_stream.end + 2 * eventRadius;
+        });
+        merged.subscribe(function (evt) {
+            output_stream.addEvent(evt.x);
+        }, function (err) {
+            var now = scheduler.now();
+            output_stream.setError(now);
+            output_stream.maxEnd = now + 3 * eventRadius;
+        }, function () {
+            var now = scheduler.now();
+            output_stream.setComplete(now);
+            output_stream.maxEnd = now + 2 * eventRadius;
         });
         scheduler.start();
         return output_stream;
     }
-    ;
 
     function render(canvas, mousePos, streams) {
         var ctx = canvas.getContext("2d");
@@ -512,7 +520,7 @@ var Util = (function () {
         var gfx = new Graphics(canvas, ctx);
         streams.concat(create_output_stream(streams, 400)).forEach(gfx.draw_stream, gfx);
         gfx.draw_cursor(mousePos, Util.getCurrentStream(mousePos, streams));
-        gfx.draw_operator(300);
+        gfx.draw_operator(200);
     }
     ;
 }).call(this);
