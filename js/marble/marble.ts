@@ -423,16 +423,14 @@ class Util {
 	}
 }
 
-(function() {
-	window.onload = function() {
-		var canvas = <HTMLCanvasElement> document.getElementById("rxCanvas")
-		var streamJson = Util.getJson("merge.json")
-		var y = 0
-		var streams : Stream[] = streamJson["streams"].map(function(json) {
-			y += 4*eventRadius
-			return Stream.fromJson(json, y)
-		})
-
+class MarbleDrawer {
+	constructor(canvas: HTMLCanvasElement,
+			streamJson: JSON,
+			createOutputStream: {(streams: Stream[], op_y: number): Stream}) //(Stream[], number) => Stream
+	{
+		var streams : Stream[] = MarbleDrawer.initialiseStreamsJson(streamJson)
+		var op_y = streams.reduce((accum : number, stream) => { return accum + 4 * eventRadius }, 0)
+			+ 4 * eventRadius
 		var mousePosObs: Rx.Observable<MousePos> = Rx.Observable.fromEvent(canvas, 'mousemove')
 			.map(function(evt: MouseEvent) {
 				var rect = canvas.getBoundingClientRect()
@@ -459,14 +457,7 @@ class Util {
 
 		// On mouse down add an event to the current stream.
 		var mouseDownObs = Rx.Observable.fromEvent(canvas, 'mousedown')
-		mouseDownObs.subscribe(function(){
-			mousePos.take(1).subscribe(function(mouseEvt){
-				var currStream = Util.getCurrentStream(mouseEvt, streams);
-				if (Util.diff(mouseEvt.y, currStream.y) < 2 * eventRadius) {
-					currStream.addEvent(mouseEvt.x)
-				}
-			})
-		})
+		mouseDownObs.subscribe(MarbleDrawer.mouseDownHandler(mousePos, streams))
 
 		// On mouse out of the canvas set the mouse position to somewhere 'invisible'.
 		var mouseOutObs = Rx.Observable.fromEvent(canvas, 'mouseout');
@@ -479,7 +470,40 @@ class Util {
 
 		// When a key is pressed, add the appriopriate notification to the stream.
 		var keypressObs = <Rx.Observable<KeyboardEvent>> Rx.Observable.fromEvent(canvas, 'keypress');
-		keypressObs.subscribe(function(evt){
+		keypressObs.subscribe(MarbleDrawer.keyboardHandler(mousePos, streams))
+
+		// On any user event, update the canvas.
+		mouseDownObs.merge(keypressObs).merge(mousePos).subscribe(function(){
+			mousePos.take(1).subscribe(function(mouseEvt) {
+				var allStreams = streams.concat(createOutputStream(streams, op_y + 4*eventRadius))
+				MarbleDrawer.render(canvas, mouseEvt, allStreams, op_y)
+			})
+		})
+	}
+
+	static initialiseStreamsJson(streamJson: JSON) : Stream[] {
+		var y = 0
+		return streamJson["streams"].map(json => {
+			y += 4*eventRadius;
+			return Stream.fromJson(json, y)
+		})
+	}
+
+	static mouseDownHandler(mousePos : Rx.Observable<MousePos>, streams: Stream[])
+		: (MouseEvent) => void {
+		return (evt: MouseEvent) => {
+			mousePos.take(1).subscribe(function(mouseEvt){
+				var currStream = Util.getCurrentStream(mouseEvt, streams);
+				if (Util.diff(mouseEvt.y, currStream.y) < 2 * eventRadius) {
+					currStream.addEvent(mouseEvt.x)
+				}
+			})
+		}
+	}
+
+	static keyboardHandler(mousePos: Rx.Observable<MousePos>, streams: Stream[])
+	: (KeyboardEvent) => void {
+		return (evt: KeyboardEvent) => {
 			mousePos.take(1).subscribe(function(mouseEvt) {
 				var currStream = Util.getCurrentStream(mouseEvt, streams);
 				if (Util.diff(mouseEvt.y, currStream.y) < 2 * eventRadius) {
@@ -492,58 +516,20 @@ class Util {
 					}
 				}
 			})
-		})
-
-
-		// On any user event, update the canvas.
-		mouseDownObs.merge(keypressObs).merge(mousePos).subscribe(function(){
-			mousePos.take(1).subscribe(function(mouseEvt) {
-				render(canvas, mouseEvt, streams)
-			})
-		})
+		}
 	}
 
-	/**
-	 * LOGIC
-	 **/
-	function create_output_stream(streams: Stream[], op_y: number) : Stream {
-		var scheduler = new Rx.TestScheduler()
-
-		var inputStreams = streams.map(function(stream) {
-			return stream.toObservable(scheduler)
-		})
-		var output_stream = new Stream(op_y + 2*eventRadius, 10, 500, true)
-
-		// Combine the streams
-		var merged : Rx.Observable<Evt> = inputStreams.reduce(function(accum, obs) {
-			return accum.merge(obs)
-		})
-		merged.subscribe(function(evt) {
-			output_stream.addEvt(evt)
-		}, function(err) {
-			var now = scheduler.now()
-			output_stream.maxEnd = now + 3 * eventRadius
-
-			output_stream.setErr(err)
-		}, function() {
-			var now = scheduler.now()
-			output_stream.maxEnd = now + 3 * eventRadius
-
-			output_stream.setCompleteTime(now)
-		})
-		scheduler.start()
-		return output_stream
-	}
-
-	function render(canvas: HTMLCanvasElement, mousePos: MousePos, streams : Stream[]) {
-		var op_y = 200
+	static render(canvas: HTMLCanvasElement,
+			mousePos: MousePos,
+			allStreams : Stream[],
+			op_y: number) {
 		var ctx = canvas.getContext("2d");
 		ctx.clearRect(0, 0, canvas.width, canvas.height);
 		var gfx = new Graphics(canvas, ctx);
-		streams.concat(create_output_stream(streams, op_y + 6*eventRadius)).forEach(stream => {
+		allStreams.forEach(stream => {
 			gfx.draw_stream(stream, op_y)
 		}, gfx);
-		gfx.draw_cursor(mousePos, Util.getCurrentStream(mousePos, streams));
+		gfx.draw_cursor(mousePos, Util.getCurrentStream(mousePos, allStreams));
 		gfx.draw_operator(op_y);
 	}
-}).call(this)
+}
