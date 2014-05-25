@@ -60,26 +60,48 @@ var Stream = (function () {
         }
         this.notifications = [];
     }
-    Stream.prototype.addEvent = function (x) {
-        if (this.removeNotif(x)) {
-        } else if (this.validNotification(new Notification(x))) {
-            this.notifications.push(new Evt(x, this.shape));
+    Stream.prototype.addEvent = function (x, shape, color) {
+        if (shape)
+            this.addEvt(new Evt(x, shape, color));
+        else
+            this.addEvt(new Evt(x, this.shape, color));
+
+        return this;
+    };
+
+    Stream.prototype.addEvt = function (evt) {
+        if (this.isOutput) {
+            this.notifications.push(evt);
+        } else if (this.removeNotif(evt)) {
+            // If the event overlaps with another event, remove it.
+        } else if (this.validNotification(evt)) {
+            this.notifications.push(evt);
         }
         return this;
     };
 
     Stream.prototype.setError = function (x) {
-        return this.setUnique(x, new Err(x));
+        return this.setErr(new Err(x));
     };
 
-    Stream.prototype.setComplete = function (x) {
-        return this.setUnique(x, new Complete(x));
+    Stream.prototype.setErr = function (err) {
+        return this.setUnique(err);
     };
 
-    Stream.prototype.setUnique = function (x, uniqueNotif) {
-        if (this.removeNotif(x)) {
-        } else if (x - eventRadius > this.start && x + eventRadius < this.maxEnd) {
-            this.notifications.push(uniqueNotif);
+    Stream.prototype.setCompleteTime = function (x) {
+        return this.setComplete(new Complete(x));
+    };
+
+    Stream.prototype.setComplete = function (compl) {
+        return this.setUnique(compl);
+    };
+
+    Stream.prototype.setUnique = function (notif) {
+        if (this.isOutput) {
+            this.notifications.push(notif);
+        } else if (this.removeNotif(notif)) {
+        } else if (notif.x - eventRadius > this.start && notif.x + eventRadius < this.maxEnd) {
+            this.notifications.push(notif);
 
             // Maintain the stream invariant property
             this.notifications = this.notifications.filter(this.validNotification, this);
@@ -87,8 +109,11 @@ var Stream = (function () {
         return this;
     };
 
-    Stream.prototype.removeNotif = function (x) {
-        var notifIdx = this.onNotification(x);
+    /**
+    * If the location of where the Event is to be added already contains a notification, remove that instead.
+    **/
+    Stream.prototype.removeNotif = function (notif) {
+        var notifIdx = this.onNotification(notif.x);
         if (notifIdx != null) {
             this.notifications.splice(notifIdx, 1);
             return true;
@@ -186,19 +211,19 @@ var Graphics = (function () {
         var maxEnd = 500;
         stream.notifications.forEach(function (notif) {
             if (notif instanceof Evt)
-                this.draw_event(stream, notif);
+                this.draw_event(stream, notif, op_y);
             else if (notif instanceof Err)
-                this.draw_error(stream, notif);
+                this.draw_error(stream, notif, op_y);
             else if (notif instanceof Complete) {
                 this.draw_complete(stream, notif);
-                maxEnd = notif.x + 2 * eventRadius;
+                maxEnd = notif.x + 3 * eventRadius;
             } else {
             }
         }, this);
         this.draw_arrow(stream.start, maxEnd, stream.y);
     };
 
-    Graphics.prototype.draw_event = function (stream, event, op_y, isOutput) {
+    Graphics.prototype.draw_event = function (stream, event, op_y) {
         switch (event.shape) {
             case "circle":
                 this.fill_circle(event.x, stream.y, event.color, false);
@@ -209,7 +234,7 @@ var Graphics = (function () {
         return this.draw_arrow_to_op(stream, event, op_y);
     };
 
-    Graphics.prototype.draw_error = function (stream, error, op_y, isOutput) {
+    Graphics.prototype.draw_error = function (stream, error, op_y) {
         this.draw_cross(error.x, stream.y, error.color);
         return this.draw_arrow_to_op(stream, error, op_y);
     };
@@ -437,11 +462,17 @@ var Util = (function () {
             };
         });
 
-        var mousePos = new Rx.BehaviorSubject({ x: 0, y: 0 });
+        // Create a behavioursubject containing the last value of the mouse position.
+        var mousePos = new Rx.BehaviorSubject({ x: -1337, y: -1337 });
         mousePosObs.subscribe(function (mouseEvt) {
             mousePos.onNext(mouseEvt);
+        }, function (err) {
+            mousePos.onError(err);
+        }, function () {
+            mousePos.onCompleted();
         });
 
+        // On mouse down add an event to the current stream.
         var mouseDownObs = Rx.Observable.fromEvent(canvas, 'mousedown');
         mouseDownObs.subscribe(function () {
             mousePos.take(1).subscribe(function (mouseEvt) {
@@ -452,6 +483,7 @@ var Util = (function () {
             });
         });
 
+        // On mouse out of the canvas set the mouse position to somewhere 'invisible'.
         var mouseOutObs = Rx.Observable.fromEvent(canvas, 'mouseout');
         mouseOutObs.subscribe(function (evt) {
             mousePos.onNext({
@@ -460,6 +492,7 @@ var Util = (function () {
             });
         });
 
+        // When a key is pressed, add the appriopriate notification to the stream.
         var keypressObs = Rx.Observable.fromEvent(canvas, 'keypress');
         keypressObs.subscribe(function (evt) {
             mousePos.take(1).subscribe(function (mouseEvt) {
@@ -470,7 +503,7 @@ var Util = (function () {
                             currStream.setError(mouseEvt.x);
                             break;
                         case 99:
-                            currStream.setComplete(mouseEvt.x);
+                            currStream.setCompleteTime(mouseEvt.x);
                     }
                 }
             });
@@ -493,34 +526,38 @@ var Util = (function () {
         var inputStreams = streams.map(function (stream) {
             return stream.toObservable(scheduler);
         });
-        var output_stream = new Stream(op_y + 100, 10, 500, true);
+        var output_stream = new Stream(op_y + 2 * eventRadius, 10, 500, true);
 
         // Combine the streams
         var merged = inputStreams.reduce(function (accum, obs) {
             return accum.merge(obs);
         });
         merged.subscribe(function (evt) {
-            output_stream.addEvent(evt.x);
+            output_stream.addEvt(evt);
         }, function (err) {
             var now = scheduler.now();
-            output_stream.setError(now);
             output_stream.maxEnd = now + 3 * eventRadius;
+
+            output_stream.setErr(err);
         }, function () {
             var now = scheduler.now();
-            output_stream.setComplete(now);
-            output_stream.maxEnd = now + 2 * eventRadius;
+            output_stream.maxEnd = now + 3 * eventRadius;
+
+            output_stream.setCompleteTime(now);
         });
         scheduler.start();
         return output_stream;
     }
 
     function render(canvas, mousePos, streams) {
+        var op_y = 200;
         var ctx = canvas.getContext("2d");
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         var gfx = new Graphics(canvas, ctx);
-        streams.concat(create_output_stream(streams, 400)).forEach(gfx.draw_stream, gfx);
+        streams.concat(create_output_stream(streams, op_y + 6 * eventRadius)).forEach(function (stream) {
+            gfx.draw_stream(stream, op_y);
+        }, gfx);
         gfx.draw_cursor(mousePos, Util.getCurrentStream(mousePos, streams));
-        gfx.draw_operator(200);
+        gfx.draw_operator(op_y);
     }
-    ;
 }).call(this);

@@ -49,38 +49,60 @@ class Stream {
 		this.notifications = [];
 	}
 
-	addEvent(x: number) : Stream {
-		if (this.removeNotif(x)) {
+	addEvent(x: number, shape?: string, color?: string) : Stream {
+		if(shape) this.addEvt(new Evt(x, shape, color))
+		else this.addEvt(new Evt(x, this.shape, color))
 
-		} else if (this.validNotification(new Notification(x))) {
-			this.notifications.push(new Evt(x, this.shape));
+		return this
+	}
+
+	addEvt(evt: Evt) : Stream {
+		if(this.isOutput) { // Ignore conistency rules, this is the output stream
+			this.notifications.push(evt)
+		} else if (this.removeNotif(evt)) {
+			// If the event overlaps with another event, remove it.
+		} else if (this.validNotification(evt)) {
+			this.notifications.push(evt)
 		}
 		return this;
 	}
 
 	setError(x: number) : Stream {
-		return this.setUnique(x, new Err(x));
+		return this.setErr(new Err(x))
 	}
 
-	setComplete(x : number) : Stream {
-		return this.setUnique(x, new Complete(x));
+	setErr(err: Err) : Stream {
+		return this.setUnique(err)
 	}
 
-	setUnique(x: number, uniqueNotif : Notification) : Stream {
-		if (this.removeNotif(x)) {
+	setCompleteTime(x : number) : Stream {
+		return this.setComplete(new Complete(x))
+	}
+
+	setComplete(compl: Complete) : Stream {
+		return this.setUnique(compl)
+	}
+
+	private setUnique(notif: Notification) : Stream {
+		if(this.isOutput) { // Ignore rules if output
+			this.notifications.push(notif)
+		} else if (this.removeNotif(notif)) {
 
 		}
 		// If x is within the Stream bounds.
-		else if (x - eventRadius > this.start && x + eventRadius < this.maxEnd) {
-			this.notifications.push(uniqueNotif);
+		else if (notif.x - eventRadius > this.start && notif.x + eventRadius < this.maxEnd) {
+			this.notifications.push(notif);
 			// Maintain the stream invariant property
 			this.notifications = this.notifications.filter(this.validNotification, this);
 		}
 		return this;
 	}
 
-	removeNotif(x: number) : boolean {
-		var notifIdx = this.onNotification(x);
+	/**
+	 * If the location of where the Event is to be added already contains a notification, remove that instead.
+	 **/
+	private removeNotif(notif: Notification) : boolean {
+		var notifIdx = this.onNotification(notif.x);
 		if (notifIdx != null) {
 			this.notifications.splice(notifIdx, 1);
 			return true;
@@ -97,7 +119,7 @@ class Stream {
 		var uniqueNotifs = this.notifications.filter(function(curNotif) {
 			return curNotif instanceof Err || curNotif instanceof Complete;
 		})
-		
+
 		// Check if there are notifications that should not be in the list.
 		if (notif instanceof Err || notif instanceof Complete) {
 			// If this notification is the last one added to uniqueNotifs, it is valid.
@@ -127,7 +149,7 @@ class Stream {
 		return null
 	}
 
-	toObservable(scheduler : Rx.TestScheduler) : Rx.Observable<Notification> {
+	toObservable(scheduler : Rx.TestScheduler) : Rx.Observable<Evt> {
 		var notifs : Rx.Recorded[] = this.notifications.map(function(notif) {
 			if(notif instanceof Evt)
 				return Rx.ReactiveTest.onNext(notif.x, notif)
@@ -176,11 +198,11 @@ class Graphics {
 	draw_stream(stream : Stream, op_y : number) : void {
 		var maxEnd = 500; // Default value
 		stream.notifications.forEach(function(notif){
-			if(notif instanceof Evt) this.draw_event(stream, notif);
-			else if(notif instanceof Err) this.draw_error(stream, notif);
+			if(notif instanceof Evt) this.draw_event(stream, notif, op_y);
+			else if(notif instanceof Err) this.draw_error(stream, notif, op_y);
 			else if(notif instanceof Complete){
 				this.draw_complete(stream, notif);
-				maxEnd = notif.x + 2 * eventRadius;
+				maxEnd = notif.x + 3* eventRadius;
 			} else {
 
 			}
@@ -188,7 +210,7 @@ class Graphics {
 		this.draw_arrow(stream.start, maxEnd, stream.y);
 	}
 
-	draw_event(stream : Stream, event : Evt, op_y: number, isOutput : boolean) : void {
+	draw_event(stream : Stream, event : Evt, op_y: number) : void {
 		switch (event.shape) {
 			case "circle":
 				this.fill_circle(event.x, stream.y, event.color, false);
@@ -199,7 +221,7 @@ class Graphics {
 		return this.draw_arrow_to_op(stream, event, op_y);
 	}
 
-	draw_error(stream : Stream, error : Err, op_y: number, isOutput: boolean) {
+	draw_error(stream : Stream, error : Err, op_y: number) {
 		this.draw_cross(error.x, stream.y, error.color);
 		return this.draw_arrow_to_op(stream, error, op_y);
 	}
@@ -240,7 +262,7 @@ class Graphics {
 	 * GRAPHICAL PRIMITIVES
 	 **/
 
-	draw_line(fromx, fromy, tox, toy, color) {
+	draw_line(fromx : number, fromy : number, tox : number, toy : number, color : string) : void {
 		this.ctx.beginPath();
 		this.ctx.lineWidth = 3;
 		this.ctx.strokeStyle = color;
@@ -249,12 +271,12 @@ class Graphics {
 		this.ctx.stroke();
 	}
 
-	draw_cross(centerx, centery, color) {
+	draw_cross(centerx : number, centery : number, color : string) : void {
 		this.draw_line(centerx - eventRadius, centery + eventRadius, centerx + eventRadius, centery - eventRadius, color);
 		this.draw_line(centerx - eventRadius, centery - eventRadius, centerx + eventRadius, centery + eventRadius, color);
 	}
 
-	draw_arrow(fromx, tox, y) {
+	draw_arrow(fromx : number, tox : number, y : number) : void {
 		this.ctx.beginPath();
 		this.ctx.lineWidth = 3;
 		this.ctx.strokeStyle = "#000000";
@@ -267,7 +289,7 @@ class Graphics {
 		this.ctx.stroke();
 	}
 
-	draw_dashed_arrow(x, fromy, toy) {
+	draw_dashed_arrow(x : number, fromy : number, toy : number) : void {
 		this.ctx.beginPath();
 		this.ctx.lineWidth = 3;
 		this.ctx.strokeStyle = "#000000";
@@ -285,19 +307,19 @@ class Graphics {
 		this.ctx.stroke();
 	}
 
-	draw_circle(centerx : number, centery : number, color : string, isMarked : boolean) {
+	draw_circle(centerx : number, centery : number, color : string, isMarked : boolean) : void {
 		this.circle(centerx, centery, color, isMarked, function(ctx) {
 			ctx.stroke();
 		});
 	}
 
-	fill_circle(centerx : number, centery : number, color : string, isMarked : boolean) {
+	fill_circle(centerx : number, centery : number, color : string, isMarked : boolean) : void {
 		this.circle(centerx, centery, color, isMarked, function(ctx) {
 			ctx.fill();
 		});
 	}
 
-	circle(centerx : number, centery : number, color : string, isMarked : boolean, drawFunc : (CanvasRenderingContext2D) => void) {
+	circle(centerx : number, centery : number, color : string, isMarked : boolean, drawFunc : (CanvasRenderingContext2D) => void) : void {
 		this.ctx.beginPath();
 		this.ctx.arc(centerx, centery, eventRadius, 0, 2 * Math.PI, false);
 		this.ctx.fillStyle = color;
@@ -307,15 +329,15 @@ class Graphics {
 		this.ctx.stroke();
 	}
 
-	draw_square(centerx, centery, color, isMarked) {
+	draw_square(centerx : number, centery : number, color : string, isMarked : boolean) : void {
 		this.square(centerx, centery, color, isMarked, false);
 	}
 
-	fill_square(centerx, centery, color, isMarked) {
+	fill_square(centerx : number, centery : number, color : string, isMarked : boolean) : void {
 		this.square(centerx, centery, color, isMarked, true);
 	}
 
-	square(centerx, centery, color, isMarked, doFill) {
+	square(centerx : number, centery : number, color : string, isMarked : boolean, doFill : boolean) : void {
 		this.ctx.beginPath();
 		this.ctx.rect(centerx - eventRadius, centery - eventRadius, 2 * eventRadius, 2 * eventRadius);
 		if (doFill) {
@@ -423,11 +445,19 @@ class Util {
 				}
 			})
 
-		var mousePos = new Rx.BehaviorSubject({x:0, y:0})
-		mousePosObs.subscribe(function(mouseEvt) {
-			mousePos.onNext(mouseEvt);
-		})
+		// Create a behavioursubject containing the last value of the mouse position.
+		var mousePos = new Rx.BehaviorSubject({x:-1337, y:-1337})
+		mousePosObs.subscribe(
+			function(mouseEvt) {
+				mousePos.onNext(mouseEvt)
+			}, function(err) {
+				mousePos.onError(err)
+			}, function() {
+				mousePos.onCompleted()
+			}
+		)
 
+		// On mouse down add an event to the current stream.
 		var mouseDownObs = Rx.Observable.fromEvent(canvas, 'mousedown')
 		mouseDownObs.subscribe(function(){
 			mousePos.take(1).subscribe(function(mouseEvt){
@@ -438,6 +468,7 @@ class Util {
 			})
 		})
 
+		// On mouse out of the canvas set the mouse position to somewhere 'invisible'.
 		var mouseOutObs = Rx.Observable.fromEvent(canvas, 'mouseout');
 		mouseOutObs.subscribe(function(evt){
 			mousePos.onNext({
@@ -446,6 +477,7 @@ class Util {
 			});
 		});
 
+		// When a key is pressed, add the appriopriate notification to the stream.
 		var keypressObs = <Rx.Observable<KeyboardEvent>> Rx.Observable.fromEvent(canvas, 'keypress');
 		keypressObs.subscribe(function(evt){
 			mousePos.take(1).subscribe(function(mouseEvt) {
@@ -456,20 +488,20 @@ class Util {
 							currStream.setError(mouseEvt.x);
 							break;
 						case 99:
-							currStream.setComplete(mouseEvt.x);
+							currStream.setCompleteTime(mouseEvt.x);
 					}
 				}
-			});
-		});
+			})
+		})
 
 
 		// On any user event, update the canvas.
 		mouseDownObs.merge(keypressObs).merge(mousePos).subscribe(function(){
 			mousePos.take(1).subscribe(function(mouseEvt) {
-				render(canvas, mouseEvt, streams);
-			});
-		});
-	};
+				render(canvas, mouseEvt, streams)
+			})
+		})
+	}
 
 	/**
 	 * LOGIC
@@ -480,33 +512,38 @@ class Util {
 		var inputStreams = streams.map(function(stream) {
 			return stream.toObservable(scheduler)
 		})
-		var output_stream = new Stream(op_y + 100, 10, 500, true)
+		var output_stream = new Stream(op_y + 2*eventRadius, 10, 500, true)
 
 		// Combine the streams
-		var merged : Rx.Observable<Notification> = inputStreams.reduce(function(accum, obs) {
+		var merged : Rx.Observable<Evt> = inputStreams.reduce(function(accum, obs) {
 			return accum.merge(obs)
 		})
 		merged.subscribe(function(evt) {
-			output_stream.addEvent(evt.x)
+			output_stream.addEvt(evt)
 		}, function(err) {
 			var now = scheduler.now()
-			output_stream.setError(now)
 			output_stream.maxEnd = now + 3 * eventRadius
+
+			output_stream.setErr(err)
 		}, function() {
 			var now = scheduler.now()
-			output_stream.setComplete(now)
-			output_stream.maxEnd = now + 2 * eventRadius
+			output_stream.maxEnd = now + 3 * eventRadius
+
+			output_stream.setCompleteTime(now)
 		})
 		scheduler.start()
 		return output_stream
 	}
 
 	function render(canvas: HTMLCanvasElement, mousePos: MousePos, streams : Stream[]) {
+		var op_y = 200
 		var ctx = canvas.getContext("2d");
 		ctx.clearRect(0, 0, canvas.width, canvas.height);
 		var gfx = new Graphics(canvas, ctx);
-		streams.concat(create_output_stream(streams, 400)).forEach(gfx.draw_stream, gfx);
+		streams.concat(create_output_stream(streams, op_y + 6*eventRadius)).forEach(stream => {
+			gfx.draw_stream(stream, op_y)
+		}, gfx);
 		gfx.draw_cursor(mousePos, Util.getCurrentStream(mousePos, streams));
-		gfx.draw_operator(200);
-	};
-}).call(this);
+		gfx.draw_operator(op_y);
+	}
+}).call(this)
