@@ -1,7 +1,8 @@
-///<reference path="../rx/rx.d.ts"/>
-///<reference path="../rx/rx.testing.d.ts"/>
-///<reference path="../rx/rx.async.d.ts"/>
-///<reference path="../rx/rx.binding.d.ts"/>
+///<reference path="../RxJS/ts/rx.d.ts"/>
+///<reference path="../RxJS/ts/rx.testing.d.ts"/>
+///<reference path="../RxJS/ts/rx.async.d.ts"/>
+///<reference path="../RxJS/ts/rx.binding.d.ts"/>
+///<reference path="../RxJS/ts/rx.time.d.ts"/>
 
 // A constant defining the size of the notification drawings.
 var eventRadius = 20;
@@ -423,6 +424,11 @@ class Util {
 	}
 }
 
+interface Tuple2<T1, T2> {
+	1: T1;
+	2: T2;
+}
+
 class MarbleDrawer {
 	constructor(canvas: HTMLCanvasElement,
 			streamJson: JSON,
@@ -431,7 +437,7 @@ class MarbleDrawer {
 		var streams : Stream[] = MarbleDrawer.initialiseStreamsJson(streamJson)
 		var op_y = streams.reduce((accum : number, stream) => { return accum + 4 * eventRadius }, 0)
 			+ 4 * eventRadius
-		var mousePosObs: Rx.Observable<MousePos> = Rx.Observable.fromEvent(canvas, 'mousemove')
+		var mousePos: Rx.Observable<MousePos> = Rx.Observable.fromEvent(canvas, 'mousemove')
 			.map(function(evt: MouseEvent) {
 				var rect = canvas.getBoundingClientRect()
 				return evt != null ? {
@@ -442,42 +448,28 @@ class MarbleDrawer {
 					y: 0
 				}
 			})
-
-		// Create a behavioursubject containing the last value of the mouse position.
-		var mousePos = new Rx.BehaviorSubject({x:-1337, y:-1337})
-		mousePosObs.subscribe(
-			function(mouseEvt) {
-				mousePos.onNext(mouseEvt)
-			}, function(err) {
-				mousePos.onError(err)
-			}, function() {
-				mousePos.onCompleted()
-			}
-		)
-
-		// On mouse down add an event to the current stream.
-		var mouseDownObs = Rx.Observable.fromEvent(canvas, 'mousedown')
-		mouseDownObs.subscribe(MarbleDrawer.mouseDownHandler(mousePos, streams))
+			.startWith({x: -1337, y:-1337}) // Default position
 
 		// On mouse out of the canvas set the mouse position to somewhere 'invisible'.
-		var mouseOutObs = Rx.Observable.fromEvent(canvas, 'mouseout');
-		mouseOutObs.subscribe(function(evt){
-			mousePos.onNext({
-					x: -1337,
-					y: -1337
-			});
-		});
+		var mouseOut = Rx.Observable.fromEvent(canvas, 'mouseout');
+		mousePos = mousePos.merge(mouseOut.map((evt) => { return {x: -1337, y:-1337} }))
+
+		// On mouse down add an event to the current stream.
+		var mouseDown = Rx.Observable.fromEvent(canvas, 'mousedown')
+		mouseDown.subscribe(MarbleDrawer.mouseDownHandler(mousePos, streams))
+
 
 		// When a key is pressed, add the appriopriate notification to the stream.
-		var keypressObs = <Rx.Observable<KeyboardEvent>> Rx.Observable.fromEvent(canvas, 'keypress');
-		keypressObs.subscribe(MarbleDrawer.keyboardHandler(mousePos, streams))
+		var keypress = <Rx.Observable<KeyboardEvent>> Rx.Observable.fromEvent(canvas, 'keypress');
+		var combined : Rx.Observable<Tuple2<KeyboardEvent, MousePos>> = keypress.combineLatest(mousePos, (s1, s2) =>{ return {1: s1, 2: s2} })
+		// Every keypress, get the last sample
+		combined.sample(keypress)
+			.subscribe(MarbleDrawer.keyboardHandler(streams))
 
 		// On any user event, update the canvas.
-		mouseDownObs.merge(keypressObs).merge(mousePos).subscribe(function(){
-			mousePos.take(1).subscribe(function(mouseEvt) {
-				var allStreams = streams.concat(createOutputStream(streams, op_y + 4*eventRadius))
-				MarbleDrawer.render(canvas, mouseEvt, allStreams, op_y)
-			})
+		mousePos.sample(mouseDown.merge(keypress).merge(mousePos)).subscribe( (mouseEvt: MousePos) => {
+			var allStreams = streams.concat(createOutputStream(streams, op_y + 4*eventRadius))
+			MarbleDrawer.render(canvas, mouseEvt, allStreams, op_y)
 		})
 	}
 
@@ -501,21 +493,20 @@ class MarbleDrawer {
 		}
 	}
 
-	static keyboardHandler(mousePos: Rx.Observable<MousePos>, streams: Stream[])
-	: (KeyboardEvent) => void {
-		return (evt: KeyboardEvent) => {
-			mousePos.take(1).subscribe(function(mouseEvt) {
-				var currStream = Util.getCurrentStream(mouseEvt, streams);
-				if (Util.diff(mouseEvt.y, currStream.y) < 2 * eventRadius) {
-					switch (evt.which) {
-						case 101:
-							currStream.setError(mouseEvt.x);
-							break;
-						case 99:
-							currStream.setCompleteTime(mouseEvt.x);
-					}
+	static keyboardHandler(streams: Stream[])
+	: (Tuple2) => void { // Tuple2<KeyboardEvent, MousePos> => void
+		return (evts: Tuple2<KeyboardEvent, MousePos>) => {
+			var mousePos = evts[2];
+			var currStream = Util.getCurrentStream(mousePos, streams);
+			if (Util.diff(mousePos.y, currStream.y) < 2 * eventRadius) {
+				switch (evts[1].which) {
+					case 101:
+						currStream.setError(mousePos.x);
+						break;
+					case 99:
+						currStream.setCompleteTime(mousePos.x);
 				}
-			})
+			}
 		}
 	}
 
