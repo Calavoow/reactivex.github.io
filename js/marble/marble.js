@@ -506,7 +506,7 @@ var MarbleDrawer = (function () {
         mousePos.combineLatest(keypress.merge(mouseDown).startWith(''), // Only return the mouse pos
         function (s1, s2) {
             return s1;
-        }).subscribe(function (mouseEvt) {
+        }).throttle(1).subscribe(function (mouseEvt) {
             // Update the output stream
             var allStreams = streams.concat(createOutputStream(streams, op_y));
             MarbleDrawer.render(canvas, mouseEvt, allStreams, op_y);

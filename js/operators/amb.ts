@@ -2,7 +2,6 @@
 
 (function() {
 	window.addEventListener("load", () => {
-		console.log("amb loaded")
 		var canvas = <HTMLCanvasElement> document.getElementById("amb")
 		var streamJson = Util.getJson("premade/amb.json")
 		var marbleDrawer = new MarbleDrawer(canvas, streamJson, create_output_stream)
