@@ -67,8 +67,8 @@ class Stream {
 		return this;
 	}
 
-	setError(x: number) : Stream {
-		return this.setErr(new Err(x))
+	setError(x: number, color?: string) : Stream {
+		return this.setErr(new Err(x, color))
 	}
 
 	setErr(err: Err) : Stream {
@@ -163,18 +163,18 @@ class Stream {
 		return scheduler.createColdObservable.apply(scheduler, notifs)
 	}
 
-	static fromJson(json, y : number) {
-		var stream = new Stream(y, json.start, json.maxEnd, false, json.shape);
-		stream.notifications = json.notifications.map(function(notif) {
+	static fromJson(json: JSON, y : number) {
+		var stream = new Stream(y, json["start"], json["maxEnd"], false, json["shape"]);
+		json["notifications"].forEach( (notif) => {
 			switch(notif.type) {
-				case "Event": return new Evt(notif.x, notif.shape, notif.color); break;
-				case "Error": return new Err(notif.x, notif.color); break;
-				case "Complete": return new Complete(notif.x, notif.color); break;
+				case "Event": stream.addEvent(notif.x, notif.shape, notif.color); break;
+				case "Error": stream.setError(notif.x, notif.color); break;
+				case "Complete": stream.setCompleteTime(notif.x); break;
 				default:
 					throw Error("Unkown notification type.");
 					console.log(notif);
 			}
-		});
+		})
 		return stream;
 	}
 }
@@ -462,7 +462,7 @@ class MarbleDrawer {
 	{
 		var streams : Stream[] = MarbleDrawer.initialiseStreamsJson(streamJson)
 		var op_y = streams.reduce((accum : number, stream) => { return accum + 4 * eventRadius }, 0)
-			+ 4 * eventRadius
+			+ 2 * eventRadius
 		var mousePos: Rx.Observable<MousePos> = Rx.Observable.fromEvent(canvas, 'mousemove')
 			.map(function(evt: MouseEvent) {
 				var rect = canvas.getBoundingClientRect()
@@ -500,16 +500,17 @@ class MarbleDrawer {
 				(s1, s2) => {return s1}
 			).subscribe( (mouseEvt: MousePos) => {
 				// Update the output stream
-				var allStreams = streams.concat(createOutputStream(streams, op_y + 4*eventRadius))
+				var allStreams = streams.concat(createOutputStream(streams, op_y))
 				MarbleDrawer.render(canvas, mouseEvt, allStreams, op_y)
 			})
 	}
 
 	static initialiseStreamsJson(streamJson: JSON) : Stream[] {
-		var y = 0
+		var y = 2*eventRadius
 		return streamJson["streams"].map(json => {
-			y += 4*eventRadius;
-			return Stream.fromJson(json, y)
+			var r = Stream.fromJson(json, y)
+			y += 4*eventRadius
+			return r
 		})
 	}
 

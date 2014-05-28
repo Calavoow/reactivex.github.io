@@ -80,8 +80,8 @@ var Stream = (function () {
         return this;
     };
 
-    Stream.prototype.setError = function (x) {
-        return this.setErr(new Err(x));
+    Stream.prototype.setError = function (x, color) {
+        return this.setErr(new Err(x, color));
     };
 
     Stream.prototype.setErr = function (err) {
@@ -176,17 +176,17 @@ var Stream = (function () {
     };
 
     Stream.fromJson = function (json, y) {
-        var stream = new Stream(y, json.start, json.maxEnd, false, json.shape);
-        stream.notifications = json.notifications.map(function (notif) {
+        var stream = new Stream(y, json["start"], json["maxEnd"], false, json["shape"]);
+        json["notifications"].forEach(function (notif) {
             switch (notif.type) {
                 case "Event":
-                    return new Evt(notif.x, notif.shape, notif.color);
+                    stream.addEvent(notif.x, notif.shape, notif.color);
                     break;
                 case "Error":
-                    return new Err(notif.x, notif.color);
+                    stream.setError(notif.x, notif.color);
                     break;
                 case "Complete":
-                    return new Complete(notif.x, notif.color);
+                    stream.setCompleteTime(notif.x);
                     break;
                 default:
                     throw Error("Unkown notification type.");
@@ -470,7 +470,7 @@ var MarbleDrawer = (function () {
         var streams = MarbleDrawer.initialiseStreamsJson(streamJson);
         var op_y = streams.reduce(function (accum, stream) {
             return accum + 4 * eventRadius;
-        }, 0) + 4 * eventRadius;
+        }, 0) + 2 * eventRadius;
         var mousePos = Rx.Observable.fromEvent(canvas, 'mousemove').map(function (evt) {
             var rect = canvas.getBoundingClientRect();
             return evt != null ? {
@@ -507,15 +507,16 @@ var MarbleDrawer = (function () {
             return s1;
         }).subscribe(function (mouseEvt) {
             // Update the output stream
-            var allStreams = streams.concat(createOutputStream(streams, op_y + 4 * eventRadius));
+            var allStreams = streams.concat(createOutputStream(streams, op_y));
             MarbleDrawer.render(canvas, mouseEvt, allStreams, op_y);
         });
     }
     MarbleDrawer.initialiseStreamsJson = function (streamJson) {
-        var y = 0;
+        var y = 2 * eventRadius;
         return streamJson["streams"].map(function (json) {
+            var r = Stream.fromJson(json, y);
             y += 4 * eventRadius;
-            return Stream.fromJson(json, y);
+            return r;
         });
     };
 

@@ -1,10 +1,10 @@
-/// <reference path="marble.ts"/>
+/// <reference path="../marble/marble.ts"/>
 (function () {
-    window.onload = function () {
-        var canvas = document.getElementById("rxCanvas");
-        var streamJson = Util.getJson("merge.json");
+    window.addEventListener("load", function () {
+        var canvas = document.getElementById("merge");
+        var streamJson = Util.getJson("premade/merge.json");
         var marbleDrawer = new MarbleDrawer(canvas, streamJson, create_output_stream);
-    };
+    });
 
     function create_output_stream(streams, op_y) {
         var scheduler = new Rx.TestScheduler();
@@ -12,7 +12,7 @@
         var inputStreams = streams.map(function (stream) {
             return stream.toObservable(scheduler);
         });
-        var output_stream = new Stream(op_y + 2 * eventRadius, 10, 500, true);
+        var output_stream = new Stream(op_y + 6 * eventRadius, 10, 500, true);
 
         // Combine the streams
         var merged = inputStreams.reduce(function (accum, obs) {

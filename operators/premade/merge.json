@@ -1,0 +1,24 @@
+{
+	"streams": [
+		{
+			"start": 10,
+			"maxEnd": 500,
+			"notifications": [
+				{ "x": 100, "type": "Event", "color": "#123456"},
+				{ "x": 200, "type": "Event", "color": "#111111" },
+				{ "x": 320, "type": "Complete"}
+			],
+			"shape": "circle"
+		},
+		{
+			"start": 10,
+			"maxEnd": 500,
+			"notifications": [
+				{ "x": 150, "type": "Event" },
+				{ "x": 250, "type": "Event" },
+				{ "x": 350, "type": "Error" }
+			],
+			"shape": "square"
+		}
+	]
+}
