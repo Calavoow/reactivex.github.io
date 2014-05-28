@@ -422,32 +422,32 @@ class Util {
 		return JSON.parse(Util.httpGet(url));
 	}
 
-    static triggeredObservable<T>(source : Rx.Observable<T>, trigger : Rx.Observable<any>) {
-        return Rx.Observable.create(function (observer) {
-            var atEnd : boolean
-            var hasValue : boolean
-            var value : T
+	static triggeredObservable<T>(source : Rx.Observable<T>, trigger : Rx.Observable<any>) {
+		return Rx.Observable.create(function (observer) {
+			var atEnd : boolean
+			var hasValue : boolean
+			var value : T
 
-            function triggerSubscribe() {
-                if (hasValue) {
-                    observer.onNext(value);
-                }
-                if (atEnd) {
-                    observer.onCompleted();
-                }
-            }
+			function triggerSubscribe() {
+				if (hasValue) {
+					observer.onNext(value);
+				}
+				if (atEnd) {
+					observer.onCompleted();
+				}
+			}
 
-            return new Rx.CompositeDisposable(
-                source.subscribe(function (newValue) {
-                    hasValue = true;
-                    value = newValue;
-                }, observer.onError.bind(observer), function () {
-                    atEnd = true;
-                }),
-                trigger.subscribe(triggerSubscribe, observer.onError.bind(observer), triggerSubscribe)
-            )
-        })
-    }
+			return new Rx.CompositeDisposable(
+				source.subscribe(function (newValue) {
+					hasValue = true;
+					value = newValue;
+				}, observer.onError.bind(observer), function () {
+					atEnd = true;
+				}),
+				trigger.subscribe(triggerSubscribe, observer.onError.bind(observer), triggerSubscribe)
+			)
+		})
+	}
 }
 
 interface Tuple2<T1, T2> {
