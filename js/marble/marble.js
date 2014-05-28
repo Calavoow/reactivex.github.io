@@ -2,6 +2,7 @@
 ///<reference path="../RxJS/ts/rx.testing.d.ts"/>
 ///<reference path="../RxJS/ts/rx.async.d.ts"/>
 ///<reference path="../RxJS/ts/rx.binding.d.ts"/>
+///<reference path="../RxJS/ts/rx.time.d.ts"/>
 var __extends = this.__extends || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
     function __() { this.constructor = d; }

@@ -2,6 +2,7 @@
 ///<reference path="../RxJS/ts/rx.testing.d.ts"/>
 ///<reference path="../RxJS/ts/rx.async.d.ts"/>
 ///<reference path="../RxJS/ts/rx.binding.d.ts"/>
+///<reference path="../RxJS/ts/rx.time.d.ts"/>
 
 // A constant defining the size of the notification drawings.
 var eventRadius = 20;
@@ -498,7 +499,8 @@ class MarbleDrawer {
 				(<Rx.Observable<any>> keypress).merge(mouseDown).startWith(''),
 				// Only return the mouse pos
 				(s1, s2) => {return s1}
-			).subscribe( (mouseEvt: MousePos) => {
+			).throttle(1) // Limit to one update per ms
+			.subscribe( (mouseEvt: MousePos) => {
 				// Update the output stream
 				var allStreams = streams.concat(createOutputStream(streams, op_y))
 				MarbleDrawer.render(canvas, mouseEvt, allStreams, op_y)
