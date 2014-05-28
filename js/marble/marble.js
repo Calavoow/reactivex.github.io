@@ -2,7 +2,6 @@
 ///<reference path="../RxJS/ts/rx.testing.d.ts"/>
 ///<reference path="../RxJS/ts/rx.async.d.ts"/>
 ///<reference path="../RxJS/ts/rx.binding.d.ts"/>
-///<reference path="../RxJS/ts/rx.time.d.ts"/>
 var __extends = this.__extends || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
     function __() { this.constructor = d; }
@@ -439,6 +438,30 @@ var Util = (function () {
     Util.getJson = function (url) {
         return JSON.parse(Util.httpGet(url));
     };
+
+    Util.triggeredObservable = function (source, trigger) {
+        return Rx.Observable.create(function (observer) {
+            var atEnd;
+            var hasValue;
+            var value;
+
+            function triggerSubscribe() {
+                if (hasValue) {
+                    observer.onNext(value);
+                }
+                if (atEnd) {
+                    observer.onCompleted();
+                }
+            }
+
+            return new Rx.CompositeDisposable(source.subscribe(function (newValue) {
+                hasValue = true;
+                value = newValue;
+            }, observer.onError.bind(observer), function () {
+                atEnd = true;
+            }), trigger.subscribe(triggerSubscribe, observer.onError.bind(observer), triggerSubscribe));
+        });
+    };
     return Util;
 })();
 
@@ -467,7 +490,7 @@ var MarbleDrawer = (function () {
 
         // On mouse down add an event to the current stream.
         var mouseDown = Rx.Observable.fromEvent(canvas, 'mousedown');
-        mouseDown.subscribe(MarbleDrawer.mouseDownHandler(mousePos, streams));
+        Util.triggeredObservable(mousePos, mouseDown).subscribe(MarbleDrawer.mouseDownHandler(streams));
 
         // When a key is pressed, add the appriopriate notification to the stream.
         var keypress = Rx.Observable.fromEvent(canvas, 'keypress');
@@ -475,11 +498,15 @@ var MarbleDrawer = (function () {
             return { 1: s1, 2: s2 };
         });
 
-        // Every keypress, get the last sample
-        combined.sample(keypress).subscribe(MarbleDrawer.keyboardHandler(streams));
+        // Every keypress, trigger the output.
+        Util.triggeredObservable(combined, keypress).subscribe(MarbleDrawer.keyboardHandler(streams));
 
         // On any user event, update the canvas.
-        mousePos.sample(mouseDown.merge(keypress).merge(mousePos)).subscribe(function (mouseEvt) {
+        mousePos.combineLatest(keypress.merge(mouseDown).startWith(''), // Only return the mouse pos
+        function (s1, s2) {
+            return s1;
+        }).subscribe(function (mouseEvt) {
+            // Update the output stream
             var allStreams = streams.concat(createOutputStream(streams, op_y + 4 * eventRadius));
             MarbleDrawer.render(canvas, mouseEvt, allStreams, op_y);
         });
@@ -492,14 +519,12 @@ var MarbleDrawer = (function () {
         });
     };
 
-    MarbleDrawer.mouseDownHandler = function (mousePos, streams) {
-        return function (evt) {
-            mousePos.take(1).subscribe(function (mouseEvt) {
-                var currStream = Util.getCurrentStream(mouseEvt, streams);
-                if (Util.diff(mouseEvt.y, currStream.y) < 2 * eventRadius) {
-                    currStream.addEvent(mouseEvt.x);
-                }
-            });
+    MarbleDrawer.mouseDownHandler = function (streams) {
+        return function (mousePos) {
+            var currStream = Util.getCurrentStream(mousePos, streams);
+            if (Util.diff(mousePos.y, currStream.y) < 2 * eventRadius) {
+                currStream.addEvent(mousePos.x);
+            }
         };
     };
 

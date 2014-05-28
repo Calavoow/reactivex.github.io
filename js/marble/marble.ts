@@ -2,7 +2,6 @@
 ///<reference path="../RxJS/ts/rx.testing.d.ts"/>
 ///<reference path="../RxJS/ts/rx.async.d.ts"/>
 ///<reference path="../RxJS/ts/rx.binding.d.ts"/>
-///<reference path="../RxJS/ts/rx.time.d.ts"/>
 
 // A constant defining the size of the notification drawings.
 var eventRadius = 20;
@@ -422,6 +421,33 @@ class Util {
 	static getJson(url : string) : JSON {
 		return JSON.parse(Util.httpGet(url));
 	}
+
+    static triggeredObservable<T>(source : Rx.Observable<T>, trigger : Rx.Observable<any>) {
+        return Rx.Observable.create(function (observer) {
+            var atEnd : boolean
+            var hasValue : boolean
+            var value : T
+
+            function triggerSubscribe() {
+                if (hasValue) {
+                    observer.onNext(value);
+                }
+                if (atEnd) {
+                    observer.onCompleted();
+                }
+            }
+
+            return new Rx.CompositeDisposable(
+                source.subscribe(function (newValue) {
+                    hasValue = true;
+                    value = newValue;
+                }, observer.onError.bind(observer), function () {
+                    atEnd = true;
+                }),
+                trigger.subscribe(triggerSubscribe, observer.onError.bind(observer), triggerSubscribe)
+            )
+        })
+    }
 }
 
 interface Tuple2<T1, T2> {
@@ -456,21 +482,27 @@ class MarbleDrawer {
 
 		// On mouse down add an event to the current stream.
 		var mouseDown = Rx.Observable.fromEvent(canvas, 'mousedown')
-		mouseDown.subscribe(MarbleDrawer.mouseDownHandler(mousePos, streams))
-
+		Util.triggeredObservable(mousePos, mouseDown)
+			.subscribe(MarbleDrawer.mouseDownHandler(streams))
 
 		// When a key is pressed, add the appriopriate notification to the stream.
 		var keypress = <Rx.Observable<KeyboardEvent>> Rx.Observable.fromEvent(canvas, 'keypress');
 		var combined : Rx.Observable<Tuple2<KeyboardEvent, MousePos>> = keypress.combineLatest(mousePos, (s1, s2) =>{ return {1: s1, 2: s2} })
-		// Every keypress, get the last sample
-		combined.sample(keypress)
+		// Every keypress, trigger the output.
+		Util.triggeredObservable(combined, keypress)
 			.subscribe(MarbleDrawer.keyboardHandler(streams))
 
 		// On any user event, update the canvas.
-		mousePos.sample(mouseDown.merge(keypress).merge(mousePos)).subscribe( (mouseEvt: MousePos) => {
-			var allStreams = streams.concat(createOutputStream(streams, op_y + 4*eventRadius))
-			MarbleDrawer.render(canvas, mouseEvt, allStreams, op_y)
-		})
+		mousePos.combineLatest(
+				//Make sure it has a starting value, for initial rendering.
+				(<Rx.Observable<any>> keypress).merge(mouseDown).startWith(''),
+				// Only return the mouse pos
+				(s1, s2) => {return s1}
+			).subscribe( (mouseEvt: MousePos) => {
+				// Update the output stream
+				var allStreams = streams.concat(createOutputStream(streams, op_y + 4*eventRadius))
+				MarbleDrawer.render(canvas, mouseEvt, allStreams, op_y)
+			})
 	}
 
 	static initialiseStreamsJson(streamJson: JSON) : Stream[] {
@@ -481,15 +513,13 @@ class MarbleDrawer {
 		})
 	}
 
-	static mouseDownHandler(mousePos : Rx.Observable<MousePos>, streams: Stream[])
-		: (MouseEvent) => void {
-		return (evt: MouseEvent) => {
-			mousePos.take(1).subscribe(function(mouseEvt){
-				var currStream = Util.getCurrentStream(mouseEvt, streams);
-				if (Util.diff(mouseEvt.y, currStream.y) < 2 * eventRadius) {
-					currStream.addEvent(mouseEvt.x)
-				}
-			})
+	static mouseDownHandler(streams: Stream[])
+		: (MousePos) => void {
+		return (mousePos: MousePos) => {
+			var currStream = Util.getCurrentStream(mousePos, streams);
+			if (Util.diff(mousePos.y, currStream.y) < 2 * eventRadius) {
+				currStream.addEvent(mousePos.x)
+			}
 		}
 	}
 
@@ -513,7 +543,8 @@ class MarbleDrawer {
 	static render(canvas: HTMLCanvasElement,
 			mousePos: MousePos,
 			allStreams : Stream[],
-			op_y: number) {
+			op_y: number)
+	{
 		var ctx = canvas.getContext("2d");
 		ctx.clearRect(0, 0, canvas.width, canvas.height);
 		var gfx = new Graphics(canvas, ctx);
