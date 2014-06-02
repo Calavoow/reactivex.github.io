@@ -49,10 +49,9 @@ var Complete = (function (_super) {
 })(Notification);
 
 var Stream = (function () {
-    function Stream(y, start, maxEnd, isOutput, shape) {
-        this.y = y;
+    function Stream(start, end, isOutput, shape) {
         this.start = start;
-        this.maxEnd = maxEnd;
+        this.end = end;
         this.isOutput = isOutput;
         if (shape)
             this.shape = shape;
@@ -101,7 +100,7 @@ var Stream = (function () {
         if (this.isOutput) {
             this.notifications.push(notif);
         } else if (this.removeNotif(notif)) {
-        } else if (notif.x - eventRadius > this.start && notif.x + eventRadius < this.maxEnd) {
+        } else if (notif.x - eventRadius > this.start.x && notif.x + eventRadius < this.end.x) {
             this.notifications.push(notif);
 
             // Maintain the stream invariant property
@@ -143,7 +142,7 @@ var Stream = (function () {
             });
 
             // And if it is after the start of the Stream then it is valid.
-            return notifBeforeEnd && notif.x - eventRadius > this.start;
+            return notifBeforeEnd && notif.x - eventRadius > this.start.x;
         }
     };
 
@@ -177,7 +176,9 @@ var Stream = (function () {
     };
 
     Stream.fromJson = function (json, y) {
-        var stream = new Stream(y, json["start"], json["maxEnd"], false, json["shape"]);
+        var start = { x: json["start"], y: y };
+        var end = { x: json["maxEnd"], y: y };
+        var stream = new Stream(start, end, false, json["shape"]);
         json["notifications"].forEach(function (notif) {
             switch (notif.type) {
                 case "Event":
@@ -199,7 +200,6 @@ var Stream = (function () {
     return Stream;
 })();
 
-
 /**
 * GRAPHICS
 **/
@@ -209,57 +209,60 @@ var Graphics = (function () {
         this.ctx = ctx;
     }
     Graphics.prototype.draw_stream = function (stream, op_y) {
-        var maxEnd = 500;
+        var _this = this;
         stream.notifications.forEach(function (notif) {
+            var y = Util.intersection(stream, notif.x);
             if (notif instanceof Evt)
-                this.draw_event(stream, notif, op_y);
+                _this.draw_evt(notif, y, op_y, stream.isOutput);
             else if (notif instanceof Err)
-                this.draw_error(stream, notif, op_y);
-            else if (notif instanceof Complete) {
-                this.draw_complete(stream, notif);
-                maxEnd = notif.x + 3 * eventRadius;
-            } else {
+                _this.draw_error(notif, y, op_y, stream.isOutput);
+            else if (notif instanceof Complete)
+                _this.draw_complete(notif, y);
+            else {
+                throw new Error("Unexpected notification type");
             }
         }, this);
-        this.draw_arrow(stream.start, maxEnd, stream.y);
+        this.draw_arrow(stream.start, stream.end);
     };
 
-    Graphics.prototype.draw_event = function (stream, event, op_y) {
-        switch (event.shape) {
+    Graphics.prototype.draw_evt = function (evt, y, op_y, isOutput) {
+        switch (evt.shape) {
             case "circle":
-                this.fill_circle(event.x, stream.y, event.color, false);
+                this.fill_circle(evt.x, y, evt.color, false);
                 break;
             case "square":
-                this.fill_square(event.x, stream.y, event.color, false);
+                this.fill_square(evt.x, y, evt.color, false);
         }
-        return this.draw_arrow_to_op(stream, event, op_y);
+        this.draw_arrow_to_op(evt, y, op_y, isOutput);
     };
 
-    Graphics.prototype.draw_error = function (stream, error, op_y) {
-        this.draw_cross(error.x, stream.y, error.color);
-        return this.draw_arrow_to_op(stream, error, op_y);
+    Graphics.prototype.draw_error = function (error, y, op_y, isOutput) {
+        this.draw_cross(error.x, y, error.color);
+        this.draw_arrow_to_op(error, y, op_y, isOutput);
     };
 
-    Graphics.prototype.draw_complete = function (stream, complete) {
-        return this.draw_line(complete.x, stream.y - eventRadius, complete.x, stream.y + eventRadius, "#000000");
+    Graphics.prototype.draw_complete = function (complete, y) {
+        this.draw_line(complete.x, y - eventRadius, complete.x, y + eventRadius, "#000000");
     };
 
-    Graphics.prototype.draw_arrow_to_op = function (stream, notif, op_y) {
-        if (stream.isOutput) {
-            this.draw_dashed_arrow(notif.x, op_y + 2.5 * eventRadius, stream.y - eventRadius);
+    Graphics.prototype.draw_arrow_to_op = function (notif, y, op_y, isOutput) {
+        if (isOutput) {
+            this.draw_dashed_arrow(notif.x, op_y + 2.5 * eventRadius, y - eventRadius);
         } else {
-            this.draw_dashed_arrow(notif.x, stream.y + eventRadius, op_y);
+            this.draw_dashed_arrow(notif.x, y + eventRadius, op_y);
         }
     };
 
     Graphics.prototype.draw_cursor = function (mousePos, currStream) {
-        if (Util.is_on_stream(mousePos, currStream)) {
+        // Check if currStream not null
+        if (currStream) {
             var isMarked = (currStream.onNotification(mousePos.x) != null) || !currStream.validNotification(new Notification(mousePos.x));
+            var y = Util.intersection(currStream, mousePos.x);
             switch (currStream.shape) {
                 case "circle":
-                    return this.draw_circle(mousePos.x, currStream.y, "red", isMarked);
+                    return this.draw_circle(mousePos.x, y, "red", isMarked);
                 case "square":
-                    return this.draw_square(mousePos.x, currStream.y, "red", isMarked);
+                    return this.draw_square(mousePos.x, y, "red", isMarked);
             }
         }
     };
@@ -289,15 +292,15 @@ var Graphics = (function () {
         this.draw_line(centerx - eventRadius, centery - eventRadius, centerx + eventRadius, centery + eventRadius, color);
     };
 
-    Graphics.prototype.draw_arrow = function (fromx, tox, y) {
+    Graphics.prototype.draw_arrow = function (from, to) {
         this.ctx.beginPath();
         this.ctx.lineWidth = 3;
         this.ctx.strokeStyle = "#000000";
-        this.ctx.moveTo(fromx, y);
-        this.ctx.lineTo(tox - eventRadius, y);
-        this.ctx.moveTo(tox - eventRadius, y - 0.5 * eventRadius);
-        this.ctx.lineTo(tox, y);
-        this.ctx.lineTo(tox - eventRadius, y + 0.5 * eventRadius);
+        this.ctx.moveTo(from.x, from.y);
+        this.ctx.lineTo(to.x - eventRadius, to.y);
+        this.ctx.moveTo(to.x - eventRadius, to.y - 0.5 * eventRadius);
+        this.ctx.lineTo(to.x, to.y);
+        this.ctx.lineTo(to.x - eventRadius, to.y + 0.5 * eventRadius);
         this.ctx.closePath();
         this.ctx.stroke();
     };
@@ -367,13 +370,18 @@ var Graphics = (function () {
 var Util = (function () {
     function Util() {
     }
+    /**
+    * Get the current input stream that is being moused over.
+    * @return The currently mouse over stream or null
+    **/
     Util.getCurrentStream = function (mousePos, streams) {
-        var selectedStream;
+        var selectedStream = null;
         var minDistance = Number.POSITIVE_INFINITY;
         for (var i in streams) {
             var stream = streams[i];
-            var distance = this.diff(stream.y, mousePos.y);
-            if (distance < minDistance) {
+            var y = Util.intersection(stream, mousePos.x);
+            var distance = this.diff(y, mousePos.y);
+            if (distance < minDistance && distance < 2 * eventRadius) {
                 minDistance = distance;
                 selectedStream = stream;
             }
@@ -381,41 +389,23 @@ var Util = (function () {
         return selectedStream;
     };
 
-    Util.test = function () {
-        var numbers = [];
-        for (var _i = 0; _i < (arguments.length - 0); _i++) {
-            numbers[_i] = arguments[_i + 0];
-        }
-        return numbers;
-    };
-
-    Util.is_on_stream = function (mousePos, stream) {
-        return this.diff(mousePos.y, stream.y) < 2 * eventRadius;
-    };
-
     Util.diff = function (a, b) {
         return Math.abs(a - b);
     };
 
+    /**
+    * Get the largest y value from the streams and add 3 * eventRadius
+    **/
     Util.operator_y = function (streams) {
         return streams.reduce(function (accum, stream) {
-            if (stream.y > accum) {
-                return stream.y;
+            if (stream.start.y > accum) {
+                return stream.start.y;
+            } else if (stream.end.y > accum) {
+                return stream.end.y;
             } else {
                 return accum;
             }
         }, 0) + eventRadius * 3;
-    };
-
-    Util.output_stream_y = function (streams) {
-        var ypos = 0;
-        for (var i in streams) {
-            var stream = streams[i];
-            if (stream.y > ypos) {
-                ypos = stream.y;
-            }
-        }
-        return ypos + eventRadius * 9;
     };
 
     Util.random_color = function () {
@@ -462,6 +452,18 @@ var Util = (function () {
                 atEnd = true;
             }), trigger.subscribe(triggerSubscribe, observer.onError.bind(observer), triggerSubscribe));
         });
+    };
+
+    /**
+    * Calculates the y intersection on the line from start to end at x.
+    **/
+    Util.intersectionPoints = function (start, end, x) {
+        var coeff = (end.y - start.y) / (end.x - start.x);
+        return (x - start.x) * coeff + start.y;
+    };
+
+    Util.intersection = function (stream, x) {
+        return Util.intersectionPoints(stream.start, stream.end, x);
     };
     return Util;
 })();
@@ -524,9 +526,8 @@ var MarbleDrawer = (function () {
     MarbleDrawer.mouseDownHandler = function (streams) {
         return function (mousePos) {
             var currStream = Util.getCurrentStream(mousePos, streams);
-            if (Util.diff(mousePos.y, currStream.y) < 2 * eventRadius) {
+            if (currStream)
                 currStream.addEvent(mousePos.x);
-            }
         };
     };
 
@@ -534,7 +535,7 @@ var MarbleDrawer = (function () {
         return function (evts) {
             var mousePos = evts[2];
             var currStream = Util.getCurrentStream(mousePos, streams);
-            if (Util.diff(mousePos.y, currStream.y) < 2 * eventRadius) {
+            if (currStream) {
                 switch (evts[1].which) {
                     case 101:
                         currStream.setError(mousePos.x);

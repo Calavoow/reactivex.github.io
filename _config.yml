@@ -6,3 +6,8 @@ redcarpet:
 pygments: true
 baseurl: "/reactivex.github.io"
 lsi: false
+title: ReactiveX
+author :
+  name: Eddie Schoute
+  github: Calavoow
+  twitter: Calavoow
