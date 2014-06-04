@@ -96,7 +96,18 @@ var Stream = (function () {
         }
         this.notifications = [];
     }
-    Stream.prototype.addEvent = function (x, shape, color) {
+    Stream.prototype.draw = function (gfx, op_y) {
+        throw new Error("draw not implemented");
+    };
+    return Stream;
+})();
+
+var BasicStream = (function (_super) {
+    __extends(BasicStream, _super);
+    function BasicStream() {
+        _super.apply(this, arguments);
+    }
+    BasicStream.prototype.addEvent = function (x, shape, color) {
         if (shape)
             this.addEvt(new Evt(x, shape, color));
         else
@@ -105,7 +116,7 @@ var Stream = (function () {
         return this;
     };
 
-    Stream.prototype.addEvt = function (evt) {
+    BasicStream.prototype.addEvt = function (evt) {
         if (this.isOutput) {
             this.notifications.push(evt);
         } else if (this.removeNotif(evt)) {
@@ -116,23 +127,23 @@ var Stream = (function () {
         return this;
     };
 
-    Stream.prototype.setError = function (x, color) {
+    BasicStream.prototype.setError = function (x, color) {
         return this.setErr(new Err(x, color));
     };
 
-    Stream.prototype.setErr = function (err) {
+    BasicStream.prototype.setErr = function (err) {
         return this.setUnique(err);
     };
 
-    Stream.prototype.setCompleteTime = function (x) {
+    BasicStream.prototype.setCompleteTime = function (x) {
         return this.setComplete(new Complete(x));
     };
 
-    Stream.prototype.setComplete = function (compl) {
+    BasicStream.prototype.setComplete = function (compl) {
         return this.setUnique(compl);
     };
 
-    Stream.prototype.setUnique = function (notif) {
+    BasicStream.prototype.setUnique = function (notif) {
         if (this.isOutput) {
             this.notifications.push(notif);
         } else if (this.removeNotif(notif)) {
@@ -148,7 +159,7 @@ var Stream = (function () {
     /**
     * If the location of where the Event is to be added already contains a notification, remove that instead.
     **/
-    Stream.prototype.removeNotif = function (notif) {
+    BasicStream.prototype.removeNotif = function (notif) {
         var notifIdx = this.onNotification(notif.x);
         if (notifIdx != null) {
             this.notifications.splice(notifIdx, 1);
@@ -161,7 +172,7 @@ var Stream = (function () {
     /**
     * Invariant property of Notifications
     **/
-    Stream.prototype.validNotification = function (notif) {
+    BasicStream.prototype.validNotification = function (notif) {
         // Contains all notifications that should be unique
         var uniqueNotifs = this.notifications.filter(function (curNotif) {
             return curNotif instanceof Err || curNotif instanceof Complete;
@@ -186,7 +197,7 @@ var Stream = (function () {
     * Find if the mouse is on a notification in this stream.
     * @return The index of the notification it is on otherwise null.
     **/
-    Stream.prototype.onNotification = function (x) {
+    BasicStream.prototype.onNotification = function (x) {
         for (var i in this.notifications) {
             var notif = this.notifications[i];
             if (Util.diff(notif.x, x) < 2 * eventRadius) {
@@ -196,7 +207,7 @@ var Stream = (function () {
         return null;
     };
 
-    Stream.prototype.toObservable = function (scheduler) {
+    BasicStream.prototype.toObservable = function (scheduler) {
         var notifs = this.notifications.map(function (notif) {
             return notif.toRecorded();
         });
@@ -204,10 +215,19 @@ var Stream = (function () {
         return scheduler.createColdObservable.apply(scheduler, notifs);
     };
 
-    Stream.fromJson = function (json, y) {
+    BasicStream.prototype.draw = function (gfx, op_y) {
+        var _this = this;
+        this.notifications.forEach(function (notif) {
+            var y = Util.intersection(_this, notif.x);
+            notif.draw(gfx, y, op_y, _this.isOutput);
+        });
+        gfx.draw_arrow(this.start, this.end);
+    };
+
+    BasicStream.fromJson = function (json, y) {
         var start = { x: json["start"], y: y };
         var end = { x: json["maxEnd"], y: y };
-        var stream = new Stream(start, end, false, json["shape"]);
+        var stream = new BasicStream(start, end, false, json["shape"]);
         json["notifications"].forEach(function (notif) {
             switch (notif.type) {
                 case "Event":
@@ -226,8 +246,8 @@ var Stream = (function () {
         });
         return stream;
     };
-    return Stream;
-})();
+    return BasicStream;
+})(Stream);
 
 /**
 * GRAPHICS
@@ -237,15 +257,6 @@ var Graphics = (function () {
         this.canvas = canvas;
         this.ctx = ctx;
     }
-    Graphics.prototype.draw_stream = function (stream, op_y) {
-        var _this = this;
-        stream.notifications.forEach(function (notif) {
-            var y = Util.intersection(stream, notif.x);
-            notif.draw(_this, y, op_y, stream.isOutput);
-        });
-        this.draw_arrow(stream.start, stream.end);
-    };
-
     Graphics.prototype.draw_arrow_to_op = function (notif, y, op_y, isOutput) {
         if (isOutput) {
             this.draw_dashed_arrow(notif.x, op_y + 2.5 * eventRadius, y - eventRadius);
@@ -383,11 +394,11 @@ var Util = (function () {
     * Get the current input stream that is being moused over.
     * @return The currently mouse over stream or null
     **/
-    Util.getCurrentStream = function (mousePos, streams) {
+    Util.getCurrentStream = function (mousePos, inputStreams) {
         var selectedStream = null;
         var minDistance = Number.POSITIVE_INFINITY;
-        for (var i in streams) {
-            var stream = streams[i];
+        for (var i in inputStreams) {
+            var stream = inputStreams[i];
             var y = Util.intersection(stream, mousePos.x);
             var distance = this.diff(y, mousePos.y);
             if (distance < minDistance && distance < 2 * eventRadius) {
@@ -538,14 +549,14 @@ var MarbleDrawer = (function () {
             return s1;
         }).throttle(1).subscribe(function (mouseEvt) {
             // Update the output stream
-            var allStreams = streams.concat(createOutputStream(streams, op_y));
-            MarbleDrawer.render(canvas, mouseEvt, allStreams, op_y);
+            var outputStream = createOutputStream(streams, op_y);
+            MarbleDrawer.render(canvas, mouseEvt, streams, outputStream, op_y);
         });
     }
     MarbleDrawer.initialiseStreamsJson = function (streamJson) {
         var y = 2 * eventRadius;
         return streamJson["streams"].map(function (json) {
-            var r = Stream.fromJson(json, y);
+            var r = BasicStream.fromJson(json, y);
             y += 4 * eventRadius;
             return r;
         });
@@ -575,14 +586,15 @@ var MarbleDrawer = (function () {
         };
     };
 
-    MarbleDrawer.render = function (canvas, mousePos, allStreams, op_y) {
+    MarbleDrawer.render = function (canvas, mousePos, inputStreams, outputStream, op_y) {
         var ctx = canvas.getContext("2d");
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         var gfx = new Graphics(canvas, ctx);
+        var allStreams = inputStreams.concat(outputStream);
         allStreams.forEach(function (stream) {
-            gfx.draw_stream(stream, op_y);
+            stream.draw(gfx, op_y);
         });
-        gfx.draw_cursor(mousePos, Util.getCurrentStream(mousePos, allStreams));
+        gfx.draw_cursor(mousePos, Util.getCurrentStream(mousePos, inputStreams));
         gfx.draw_operator(op_y);
     };
     return MarbleDrawer;

@@ -1,5 +1,6 @@
 /// <reference path="../marble/marble.ts"/>
-(function () {
+var Amb;
+(function (Amb) {
     window.addEventListener("load", function () {
         var canvas = document.getElementById("amb");
         var streamJson = Util.getJson("premade/amb.json");
@@ -13,7 +14,7 @@
             return stream.toObservable(scheduler);
         });
         var y = op_y + 6 * eventRadius;
-        var output_stream = new Stream({ x: 10, y: y }, { x: 500, y: y }, true);
+        var output_stream = new BasicStream({ x: 10, y: y }, { x: 500, y: y }, true);
 
         // Combine the streams
         var merged = inputStreams.reduce(function (accum, obs) {
@@ -35,4 +36,4 @@
         scheduler.start();
         return output_stream;
     }
-}).call(this);
+})(Amb || (Amb = {}));

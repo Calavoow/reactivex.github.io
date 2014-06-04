@@ -79,9 +79,9 @@ interface Point {
 	y: number;
 }
 
-class Stream {
+class Stream<T> {
 	shape: string;
-	notifications: Notification[];
+	notifications: T[];
 
 	constructor(public start : Point,
 			public end: Point,
@@ -94,14 +94,20 @@ class Stream {
 		this.notifications = [];
 	}
 
-	addEvent(x: number, shape?: string, color?: string) : Stream {
+	draw(gfx: Graphics, op_y: number) : void {
+		throw new Error("draw not implemented")
+	}
+}
+
+class BasicStream extends Stream<Notification> {
+	addEvent(x: number, shape?: string, color?: string) : BasicStream {
 		if(shape) this.addEvt(new Evt(x, shape, color))
 		else this.addEvt(new Evt(x, this.shape, color))
 
 		return this
 	}
 
-	addEvt(evt: Evt) : Stream {
+	addEvt(evt: Evt) : BasicStream {
 		if(this.isOutput) { // Ignore conistency rules, this is the output stream
 			this.notifications.push(evt)
 		} else if (this.removeNotif(evt)) {
@@ -112,23 +118,23 @@ class Stream {
 		return this;
 	}
 
-	setError(x: number, color?: string) : Stream {
+	setError(x: number, color?: string) : BasicStream {
 		return this.setErr(new Err(x, color))
 	}
 
-	setErr(err: Err) : Stream {
+	setErr(err: Err) : BasicStream {
 		return this.setUnique(err)
 	}
 
-	setCompleteTime(x : number) : Stream {
+	setCompleteTime(x : number) : BasicStream {
 		return this.setComplete(new Complete(x))
 	}
 
-	setComplete(compl: Complete) : Stream {
+	setComplete(compl: Complete) : BasicStream {
 		return this.setUnique(compl)
 	}
 
-	private setUnique(notif: Notification) : Stream {
+	private setUnique(notif: Notification) : BasicStream {
 		if(this.isOutput) { // Ignore rules if output
 			this.notifications.push(notif)
 		} else if (this.removeNotif(notif)) {
@@ -200,10 +206,18 @@ class Stream {
 		return scheduler.createColdObservable.apply(scheduler, notifs)
 	}
 
-	static fromJson(json: JSON, y : number) {
+	draw(gfx: Graphics, op_y : number) : void {
+		this.notifications.forEach((notif) => {
+			var y = Util.intersection(this, notif.x)
+			notif.draw(gfx, y, op_y, this.isOutput)
+		})
+		gfx.draw_arrow(this.start, this.end)
+	}
+
+	static fromJson(json: JSON, y : number) : BasicStream {
 		var start = {x: json["start"], y: y}
 		var end = {x: json["maxEnd"], y: y}
-		var stream = new Stream(start, end, false, json["shape"]);
+		var stream = new BasicStream(start, end, false, json["shape"]);
 		json["notifications"].forEach( (notif) => {
 			switch(notif.type) {
 				case "Event": stream.addEvent(notif.x, notif.shape, notif.color); break;
@@ -230,14 +244,6 @@ class Graphics {
 	constructor(private canvas: HTMLCanvasElement, private ctx : CanvasRenderingContext2D) {
 	}
 
-	draw_stream(stream : Stream, op_y : number) : void {
-		stream.notifications.forEach((notif) => {
-			var y = Util.intersection(stream, notif.x)
-			notif.draw(this, y, op_y, stream.isOutput)
-		})
-		this.draw_arrow(stream.start, stream.end)
-	}
-
 	draw_arrow_to_op(notif: Notification, y : number, op_y: number, isOutput : boolean) :void {
 		if (isOutput) {
 			this.draw_dashed_arrow(notif.x, op_y + 2.5 * eventRadius, y - eventRadius)
@@ -246,7 +252,7 @@ class Graphics {
 		}
 	}
 
-	draw_cursor(mousePos: MousePos, currStream: Stream): void {
+	draw_cursor(mousePos: MousePos, currStream: BasicStream): void {
 		// Check if currStream not null
 		if(currStream) {
 			var isMarked = (currStream.onNotification(mousePos.x) != null) || !currStream.validNotification(new Notification(mousePos.x))
@@ -373,11 +379,11 @@ class Util {
 	 * Get the current input stream that is being moused over.
 	 * @return The currently mouse over stream or null
 	 **/
-	static getCurrentStream(mousePos : MousePos, streams: Stream[]) : Stream {
-		var selectedStream : Stream = null
+	static getCurrentStream(mousePos : MousePos, inputStreams: BasicStream[]): BasicStream {
+		var selectedStream : BasicStream = null
 		var minDistance = Number.POSITIVE_INFINITY
-		for (var i in streams) {
-			var stream = streams[i]
+		for (var i in inputStreams) {
+			var stream = inputStreams[i]
 			var y = Util.intersection(stream, mousePos.x)
 			var distance = this.diff(y, mousePos.y)
 			if (distance < minDistance && distance < 2 * eventRadius) {
@@ -395,8 +401,8 @@ class Util {
 	/**
 	 * Get the largest y value from the streams and add 3 * eventRadius
 	 **/
-	static operator_y(streams: Stream[]) {
-		return streams.reduce((accum : number, stream : Stream) => {
+	static operator_y(streams: Stream<any>[]) {
+		return streams.reduce((accum : number, stream : Stream<any>) => {
 			if( stream.start.y > accum ) {
 				return stream.start.y
 			} else if( stream.end.y > accum ) {
@@ -464,7 +470,7 @@ class Util {
 		return (x - start.x) * coeff + start.y
 	}
 
-	static intersection(stream: Stream, x: number) : number {
+	static intersection(stream: Stream<any>, x: number) : number {
 		return Util.intersectionPoints(stream.start, stream.end, x)
 	}
 
@@ -496,9 +502,9 @@ interface Tuple2<T1, T2> {
 class MarbleDrawer {
 	constructor(canvas: HTMLCanvasElement,
 			streamJson: JSON,
-			createOutputStream: {(streams: Stream[], op_y: number): Stream}) //(Stream[], number) => Stream
+			createOutputStream: {(streams: BasicStream[], op_y: number): Stream<any>}) //(Stream[], number) => Stream
 	{
-		var streams : Stream[] = MarbleDrawer.initialiseStreamsJson(streamJson)
+		var streams : BasicStream[] = MarbleDrawer.initialiseStreamsJson(streamJson)
 		var op_y = streams.reduce((accum : number, stream) => { return accum + 4 * eventRadius }, 0)
 			+ 2 * eventRadius
 		var mousePos: Rx.Observable<MousePos> = Rx.Observable.fromEvent(canvas, 'mousemove')
@@ -539,21 +545,21 @@ class MarbleDrawer {
 			).throttle(1) // Limit to one update per ms
 			.subscribe( (mouseEvt: MousePos) => {
 				// Update the output stream
-				var allStreams = streams.concat(createOutputStream(streams, op_y))
-				MarbleDrawer.render(canvas, mouseEvt, allStreams, op_y)
+				var outputStream = createOutputStream(streams, op_y)
+				MarbleDrawer.render(canvas, mouseEvt, streams, outputStream, op_y)
 			})
 	}
 
-	static initialiseStreamsJson(streamJson: JSON) : Stream[] {
+	static initialiseStreamsJson(streamJson: JSON) : BasicStream[] {
 		var y = 2*eventRadius
 		return streamJson["streams"].map(json => {
-			var r = Stream.fromJson(json, y)
+			var r = BasicStream.fromJson(json, y)
 			y += 4*eventRadius
 			return r
 		})
 	}
 
-	static mouseDownHandler(streams: Stream[])
+	static mouseDownHandler(streams: BasicStream[])
 		: (MousePos) => void {
 		return (mousePos: MousePos) => {
 			var currStream = Util.getCurrentStream(mousePos, streams);
@@ -561,7 +567,7 @@ class MarbleDrawer {
 		}
 	}
 
-	static keyboardHandler(streams: Stream[])
+	static keyboardHandler(streams: BasicStream[])
 	: (Tuple2) => void { // Tuple2<KeyboardEvent, MousePos> => void
 		return (evts: Tuple2<KeyboardEvent, MousePos>) => {
 			var mousePos = evts[2];
@@ -580,16 +586,16 @@ class MarbleDrawer {
 
 	static render(canvas: HTMLCanvasElement,
 			mousePos: MousePos,
-			allStreams : Stream[],
+			inputStreams: BasicStream[],
+			outputStream: Stream<any>,
 			op_y: number)
 	{
 		var ctx = canvas.getContext("2d");
 		ctx.clearRect(0, 0, canvas.width, canvas.height);
 		var gfx = new Graphics(canvas, ctx);
-		allStreams.forEach(stream => {
-			gfx.draw_stream(stream, op_y)
-		});
-		gfx.draw_cursor(mousePos, Util.getCurrentStream(mousePos, allStreams));
+		var allStreams = (<Stream<any>[]> inputStreams).concat(outputStream)
+		allStreams.forEach((stream) => {stream.draw(gfx, op_y)});
+		gfx.draw_cursor(mousePos, Util.getCurrentStream(mousePos, inputStreams));
 		gfx.draw_operator(op_y);
 	}
 }
