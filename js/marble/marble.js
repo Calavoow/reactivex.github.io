@@ -19,6 +19,13 @@ var Notification = (function () {
         if (color)
             this.color = color;
     }
+    Notification.prototype.toRecorded = function () {
+        throw new Error("toRecorded not implemented");
+    };
+
+    Notification.prototype.draw = function (gfx, y, op_y, isOutput) {
+        throw new Error("draw not implemented");
+    };
     return Notification;
 })();
 
@@ -29,6 +36,20 @@ var Evt = (function (_super) {
         this.shape = shape;
         this.shape = shape;
     }
+    Evt.prototype.toRecorded = function () {
+        return Rx.ReactiveTest.onNext(this.x, this);
+    };
+
+    Evt.prototype.draw = function (gfx, y, op_y, isOutput) {
+        switch (this.shape) {
+            case "circle":
+                gfx.fill_circle(this.x, y, this.color, false);
+                break;
+            case "square":
+                gfx.fill_square(this.x, y, this.color, false);
+        }
+        gfx.draw_arrow_to_op(this, y, op_y, isOutput);
+    };
     return Evt;
 })(Notification);
 
@@ -37,6 +58,14 @@ var Err = (function (_super) {
     function Err(x, color) {
         _super.call(this, x, color);
     }
+    Err.prototype.toRecorded = function () {
+        return Rx.ReactiveTest.onError(this.x, this);
+    };
+
+    Err.prototype.draw = function (gfx, y, op_y, isOutput) {
+        gfx.draw_cross(this.x, y, this.color);
+        gfx.draw_arrow_to_op(this, y, op_y, isOutput);
+    };
     return Err;
 })(Notification);
 
@@ -45,6 +74,13 @@ var Complete = (function (_super) {
     function Complete(x, color) {
         _super.call(this, x, color);
     }
+    Complete.prototype.toRecorded = function () {
+        return Rx.ReactiveTest.onCompleted(this.x);
+    };
+
+    Complete.prototype.draw = function (gfx, y, op_y, isOutput) {
+        gfx.draw_line(this.x, y - eventRadius, this.x, y + eventRadius, "#000000");
+    };
     return Complete;
 })(Notification);
 
@@ -162,14 +198,7 @@ var Stream = (function () {
 
     Stream.prototype.toObservable = function (scheduler) {
         var notifs = this.notifications.map(function (notif) {
-            if (notif instanceof Evt)
-                return Rx.ReactiveTest.onNext(notif.x, notif);
-            else if (notif instanceof Err)
-                return Rx.ReactiveTest.onError(notif.x, notif);
-            else if (notif instanceof Complete)
-                return Rx.ReactiveTest.onCompleted(notif.x);
-            else
-                throw Error("Something wrong with notification type");
+            return notif.toRecorded();
         });
 
         return scheduler.createColdObservable.apply(scheduler, notifs);
@@ -212,37 +241,9 @@ var Graphics = (function () {
         var _this = this;
         stream.notifications.forEach(function (notif) {
             var y = Util.intersection(stream, notif.x);
-            if (notif instanceof Evt)
-                _this.draw_evt(notif, y, op_y, stream.isOutput);
-            else if (notif instanceof Err)
-                _this.draw_error(notif, y, op_y, stream.isOutput);
-            else if (notif instanceof Complete)
-                _this.draw_complete(notif, y);
-            else {
-                throw new Error("Unexpected notification type");
-            }
-        }, this);
+            notif.draw(_this, y, op_y, stream.isOutput);
+        });
         this.draw_arrow(stream.start, stream.end);
-    };
-
-    Graphics.prototype.draw_evt = function (evt, y, op_y, isOutput) {
-        switch (evt.shape) {
-            case "circle":
-                this.fill_circle(evt.x, y, evt.color, false);
-                break;
-            case "square":
-                this.fill_square(evt.x, y, evt.color, false);
-        }
-        this.draw_arrow_to_op(evt, y, op_y, isOutput);
-    };
-
-    Graphics.prototype.draw_error = function (error, y, op_y, isOutput) {
-        this.draw_cross(error.x, y, error.color);
-        this.draw_arrow_to_op(error, y, op_y, isOutput);
-    };
-
-    Graphics.prototype.draw_complete = function (complete, y) {
-        this.draw_line(complete.x, y - eventRadius, complete.x, y + eventRadius, "#000000");
     };
 
     Graphics.prototype.draw_arrow_to_op = function (notif, y, op_y, isOutput) {
@@ -553,7 +554,7 @@ var MarbleDrawer = (function () {
         var gfx = new Graphics(canvas, ctx);
         allStreams.forEach(function (stream) {
             gfx.draw_stream(stream, op_y);
-        }, gfx);
+        });
         gfx.draw_cursor(mousePos, Util.getCurrentStream(mousePos, allStreams));
         gfx.draw_operator(op_y);
     };

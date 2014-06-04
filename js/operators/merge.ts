@@ -13,7 +13,8 @@
 		var inputStreams = streams.map(function(stream) {
 			return stream.toObservable(scheduler)
 		})
-		var output_stream = new Stream(op_y + 6*eventRadius, 10, 500, true)
+		var y = op_y + 6*eventRadius
+		var output_stream = new Stream({x: 10, y: y}, {x: 500, y: y}, true)
 
 		// Combine the streams
 		var merged : Rx.Observable<Evt> = inputStreams.reduce(function(accum, obs) {
@@ -23,12 +24,12 @@
 			output_stream.addEvt(evt)
 		}, function(err) {
 			var now = scheduler.now()
-			output_stream.maxEnd = now + 3 * eventRadius
+			output_stream.end.x = now + 3 * eventRadius
 
 			output_stream.setErr(err)
 		}, function() {
 			var now = scheduler.now()
-			output_stream.maxEnd = now + 3 * eventRadius
+			output_stream.end.x = now + 3 * eventRadius
 
 			output_stream.setCompleteTime(now)
 		})

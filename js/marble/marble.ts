@@ -7,11 +7,19 @@
 // A constant defining the size of the notification drawings.
 var eventRadius = 20;
 
-class Notification{
+class Notification {
 	color: string = Util.random_color();
 
 	constructor(public x: number, color?: string){
 		if(color) this.color = color;
+	}
+
+	toRecorded() : Rx.Recorded {
+		throw new Error("toRecorded not implemented")
+	}
+
+	draw(gfx: Graphics, y : number, op_y: number, isOutput: boolean) : void {
+		throw new Error("draw not implemented")
 	}
 }
 
@@ -20,17 +28,49 @@ class Evt extends Notification {
 		super(x, color);
 		this.shape = shape;
 	}
+
+	toRecorded() : Rx.Recorded {
+		return Rx.ReactiveTest.onNext(this.x, this)
+	}
+
+	draw(gfx: Graphics, y : number, op_y: number, isOutput: boolean) : void {
+		switch (this.shape) {
+			case "circle":
+				gfx.fill_circle(this.x, y, this.color, false)
+				break;
+			case "square":
+				gfx.fill_square(this.x, y, this.color, false)
+		}
+		gfx.draw_arrow_to_op(this, y, op_y, isOutput);
+	}
 }
 
 class Err extends Notification{
 	constructor(x: number, color?: string){
 		super(x, color);
 	}
+
+	toRecorded() : Rx.Recorded {
+		return Rx.ReactiveTest.onError(this.x, this)
+	}
+
+	draw(gfx: Graphics, y : number, op_y: number, isOutput: boolean) : void {
+		gfx.draw_cross(this.x, y, this.color)
+		gfx.draw_arrow_to_op(this, y, op_y, isOutput)
+	}
 }
 
 class Complete extends Notification {
 	constructor(x: number, color?: string){
 		super(x, color);
+	}
+
+	toRecorded() : Rx.Recorded {
+		return Rx.ReactiveTest.onCompleted(this.x)
+	}
+
+	draw(gfx: Graphics, y : number, op_y: number, isOutput: boolean) : void {
+		gfx.draw_line(this.x, y - eventRadius, this.x, y + eventRadius, "#000000");
 	}
 }
 
@@ -155,15 +195,7 @@ class Stream {
 	}
 
 	toObservable(scheduler : Rx.TestScheduler) : Rx.Observable<Evt> {
-		var notifs : Rx.Recorded[] = this.notifications.map(function(notif) {
-			if(notif instanceof Evt)
-				return Rx.ReactiveTest.onNext(notif.x, notif)
-			else if(notif instanceof Err)
-				return Rx.ReactiveTest.onError(notif.x, notif)
-			else if(notif instanceof Complete)
-				return Rx.ReactiveTest.onCompleted(notif.x)
-			else throw Error("Something wrong with notification type")
-		})
+		var notifs : Rx.Recorded[] = this.notifications.map((notif) => { return notif.toRecorded() })
 
 		return scheduler.createColdObservable.apply(scheduler, notifs)
 	}
@@ -201,41 +233,16 @@ class Graphics {
 	draw_stream(stream : Stream, op_y : number) : void {
 		stream.notifications.forEach((notif) => {
 			var y = Util.intersection(stream, notif.x)
-			if(notif instanceof Evt) this.draw_evt(<Evt> notif, y, op_y, stream.isOutput)
-			else if(notif instanceof Err) this.draw_error(<Err> notif, y, op_y, stream.isOutput)
-			else if(notif instanceof Complete) this.draw_complete(<Complete> notif, y)
-			else {
-				throw new Error("Unexpected notification type")
-			}
-		}, this);
-		this.draw_arrow(stream.start, stream.end);
-	}
-
-	draw_evt(evt: Evt, y : number, op_y: number, isOutput: boolean) : void {
-		switch (evt.shape) {
-			case "circle":
-				this.fill_circle(evt.x, y, evt.color, false)
-				break;
-			case "square":
-				this.fill_square(evt.x, y, evt.color, false)
-		}
-		this.draw_arrow_to_op(evt, y, op_y, isOutput);
-	}
-
-	draw_error(error : Err, y : number, op_y: number, isOutput: boolean) : void {
-		this.draw_cross(error.x, y, error.color)
-		this.draw_arrow_to_op(error, y, op_y, isOutput)
-	}
-
-	draw_complete(complete: Complete, y : number) : void {
-		this.draw_line(complete.x, y - eventRadius, complete.x, y + eventRadius, "#000000");
+			notif.draw(this, y, op_y, stream.isOutput)
+		})
+		this.draw_arrow(stream.start, stream.end)
 	}
 
 	draw_arrow_to_op(notif: Notification, y : number, op_y: number, isOutput : boolean) :void {
 		if (isOutput) {
-			this.draw_dashed_arrow(notif.x, op_y + 2.5 * eventRadius, y - eventRadius);
+			this.draw_dashed_arrow(notif.x, op_y + 2.5 * eventRadius, y - eventRadius)
 		} else {
-			this.draw_dashed_arrow(notif.x, y + eventRadius, op_y);
+			this.draw_dashed_arrow(notif.x, y + eventRadius, op_y)
 		}
 	}
 
@@ -555,7 +562,7 @@ class MarbleDrawer {
 		var gfx = new Graphics(canvas, ctx);
 		allStreams.forEach(stream => {
 			gfx.draw_stream(stream, op_y)
-		}, gfx);
+		});
 		gfx.draw_cursor(mousePos, Util.getCurrentStream(mousePos, allStreams));
 		gfx.draw_operator(op_y);
 	}
