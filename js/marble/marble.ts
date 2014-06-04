@@ -287,13 +287,20 @@ class Graphics {
 
 	draw_arrow(from: Point, to: Point) : void {
 		this.ctx.beginPath()
+		// Draw the line
 		this.ctx.lineWidth = 3
 		this.ctx.strokeStyle = "#000000"
 		this.ctx.moveTo(from.x, from.y)
-		this.ctx.lineTo(to.x - eventRadius, to.y)
-		this.ctx.moveTo(to.x - eventRadius, to.y - 0.5 * eventRadius)
+
+		var norm = Util.normalizeVector(Util.makeVector(from, to))
+		var arrowBase = {x: to.x - norm.x*eventRadius, y: to.y - norm.y * eventRadius}
+		this.ctx.lineTo(arrowBase.x, arrowBase.y)
+
+		// Draw the arrow
+		var perp = Util.perpendicularVector(norm)
+		this.ctx.moveTo(arrowBase.x - perp.x * eventRadius, arrowBase.y - 0.5 * perp.y * eventRadius)
 		this.ctx.lineTo(to.x, to.y)
-		this.ctx.lineTo(to.x - eventRadius, to.y + 0.5 * eventRadius)
+		this.ctx.lineTo(arrowBase.x + perp.x * eventRadius, arrowBase.y + 0.5 * perp.y * eventRadius)
 		this.ctx.closePath()
 		this.ctx.stroke()
 	}
@@ -459,6 +466,25 @@ class Util {
 
 	static intersection(stream: Stream, x: number) : number {
 		return Util.intersectionPoints(stream.start, stream.end, x)
+	}
+
+	static normalizeVector(vector: Point): Point {
+		var x = vector.x
+		var y = vector.y
+		var len = x*x + y*y
+		if (len > 0) {
+			var ilen = 1 / Math.sqrt(len);
+			return {x: x * ilen, y: y * ilen}
+		}
+		return undefined
+	}
+
+	static perpendicularVector(vector: Point): Point {
+		return {x: -vector.y, y: vector.x}
+	}
+
+	static makeVector(start: Point, end: Point): Point {
+		return {x: end.x - start.x, y: end.y - start.y}
 	}
 }
 
