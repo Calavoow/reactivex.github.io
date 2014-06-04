@@ -1,0 +1,16 @@
+{
+	"streams": [
+		{
+			"start": 10,
+			"maxEnd": 500,
+			"notifications": [
+				{ "x": 100, "type": "Event", "shape": "circle"},
+				{ "x": 200, "type": "Event", "shape": "square"},
+				{ "x": 300, "type": "Event", "shape": "circle"},
+				{ "x": 400, "type": "Event", "shape": "square"},
+				{ "x": 425, "type": "Complete"}
+			],
+			"shape": "circle"
+		}
+	]
+}
