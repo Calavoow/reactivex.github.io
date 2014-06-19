@@ -4,8 +4,18 @@ module GroupBy {
 	window.addEventListener("load", () => {
 		var canvas = <HTMLCanvasElement> document.getElementById("groupBy")
 		var streamJson = Util.getJson("premade/groupBy.json")
-		var marbleDrawer = new MarbleDrawer(canvas, streamJson, create_output_stream)
+		var groupByDrawer = new GroupByDrawer(canvas, streamJson, create_output_stream)
 	})
+
+	class GroupByDrawer extends MarbleDrawer {
+		mouseDownHandler(streams: BasicStream[])
+			: (MousePos) => void {
+			return (mousePos: MousePos) => {
+				var currStream = Util.getCurrentStream(mousePos, streams);
+				if(currStream) currStream.addEvent(mousePos.x, Util.randomShape())
+			}
+		}
+	}
 
 	class OutputStream extends Stream<Stream<Notification>> {
 		addObservable(obs: Rx.GroupedObservable<string, Evt>, scheduler: Rx.Scheduler) : OutputStream {

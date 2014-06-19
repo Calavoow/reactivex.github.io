@@ -10,8 +10,23 @@ var GroupBy;
     window.addEventListener("load", function () {
         var canvas = document.getElementById("groupBy");
         var streamJson = Util.getJson("premade/groupBy.json");
-        var marbleDrawer = new MarbleDrawer(canvas, streamJson, create_output_stream);
+        var groupByDrawer = new GroupByDrawer(canvas, streamJson, create_output_stream);
     });
+
+    var GroupByDrawer = (function (_super) {
+        __extends(GroupByDrawer, _super);
+        function GroupByDrawer() {
+            _super.apply(this, arguments);
+        }
+        GroupByDrawer.prototype.mouseDownHandler = function (streams) {
+            return function (mousePos) {
+                var currStream = Util.getCurrentStream(mousePos, streams);
+                if (currStream)
+                    currStream.addEvent(mousePos.x, Util.randomShape());
+            };
+        };
+        return GroupByDrawer;
+    })(MarbleDrawer);
 
     var OutputStream = (function (_super) {
         __extends(OutputStream, _super);

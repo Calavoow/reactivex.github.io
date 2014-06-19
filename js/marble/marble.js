@@ -15,7 +15,7 @@ var eventRadius = 20;
 var Notification = (function () {
     function Notification(x, color) {
         this.x = x;
-        this.color = Util.random_color();
+        this.color = Util.randomColor();
         if (color)
             this.color = color;
     }
@@ -387,14 +387,13 @@ var Graphics = (function () {
     return Graphics;
 })();
 
-var Util = (function () {
-    function Util() {
-    }
+var Util;
+(function (Util) {
     /**
     * Get the current input stream that is being moused over.
     * @return The currently mouse over stream or null
     **/
-    Util.getCurrentStream = function (mousePos, inputStreams) {
+    function getCurrentStream(mousePos, inputStreams) {
         var selectedStream = null;
         var minDistance = Number.POSITIVE_INFINITY;
         for (var i in inputStreams) {
@@ -407,16 +406,18 @@ var Util = (function () {
             }
         }
         return selectedStream;
-    };
+    }
+    Util.getCurrentStream = getCurrentStream;
 
-    Util.diff = function (a, b) {
+    function diff(a, b) {
         return Math.abs(a - b);
-    };
+    }
+    Util.diff = diff;
 
     /**
     * Get the largest y value from the streams and add 3 * eventRadius
     **/
-    Util.operator_y = function (streams) {
+    function operator_y(streams) {
         return streams.reduce(function (accum, stream) {
             if (stream.start.y > accum) {
                 return stream.start.y;
@@ -426,9 +427,10 @@ var Util = (function () {
                 return accum;
             }
         }, 0) + eventRadius * 3;
-    };
+    }
+    Util.operator_y = operator_y;
 
-    Util.random_color = function () {
+    function randomColor() {
         var letters = "0123456789ABCDEF".split("");
         var color = "#";
         var i = 0;
@@ -437,20 +439,34 @@ var Util = (function () {
             i++;
         }
         return color;
-    };
+    }
+    Util.randomColor = randomColor;
 
-    Util.httpGet = function (theUrl) {
+    function randomShape() {
+        var shapes = ["circle", "square"];
+        return shapes[Util.randomInt(0, 1)];
+    }
+    Util.randomShape = randomShape;
+
+    function randomInt(min, max) {
+        return Math.floor(Math.random() * (max - min + 1) + min);
+    }
+    Util.randomInt = randomInt;
+
+    function httpGet(theUrl) {
         var xmlHttp = new XMLHttpRequest();
         xmlHttp.open("GET", theUrl, false);
         xmlHttp.send(null);
         return xmlHttp.responseText;
-    };
+    }
+    Util.httpGet = httpGet;
 
-    Util.getJson = function (url) {
+    function getJson(url) {
         return JSON.parse(Util.httpGet(url));
-    };
+    }
+    Util.getJson = getJson;
 
-    Util.triggeredObservable = function (source, trigger) {
+    function triggeredObservable(source, trigger) {
         return Rx.Observable.create(function (observer) {
             var atEnd;
             var hasValue;
@@ -472,21 +488,24 @@ var Util = (function () {
                 atEnd = true;
             }), trigger.subscribe(triggerSubscribe, observer.onError.bind(observer), triggerSubscribe));
         });
-    };
+    }
+    Util.triggeredObservable = triggeredObservable;
 
     /**
     * Calculates the y intersection on the line from start to end at x.
     **/
-    Util.intersectionPoints = function (start, end, x) {
+    function intersectionPoints(start, end, x) {
         var coeff = (end.y - start.y) / (end.x - start.x);
         return (x - start.x) * coeff + start.y;
-    };
+    }
+    Util.intersectionPoints = intersectionPoints;
 
-    Util.intersection = function (stream, x) {
+    function intersection(stream, x) {
         return Util.intersectionPoints(stream.start, stream.end, x);
-    };
+    }
+    Util.intersection = intersection;
 
-    Util.normalizeVector = function (vector) {
+    function normalizeVector(vector) {
         var x = vector.x;
         var y = vector.y;
         var len = x * x + y * y;
@@ -495,21 +514,24 @@ var Util = (function () {
             return { x: x * ilen, y: y * ilen };
         }
         return undefined;
-    };
+    }
+    Util.normalizeVector = normalizeVector;
 
-    Util.perpendicularVector = function (vector) {
+    function perpendicularVector(vector) {
         return { x: -vector.y, y: vector.x };
-    };
+    }
+    Util.perpendicularVector = perpendicularVector;
 
-    Util.makeVector = function (start, end) {
+    function makeVector(start, end) {
         return { x: end.x - start.x, y: end.y - start.y };
-    };
-    return Util;
-})();
+    }
+    Util.makeVector = makeVector;
+})(Util || (Util = {}));
 
 var MarbleDrawer = (function () {
     function MarbleDrawer(canvas, streamJson, createOutputStream) {
-        var streams = MarbleDrawer.initialiseStreamsJson(streamJson);
+        var _this = this;
+        var streams = this.initialiseStreamsJson(streamJson);
         var op_y = streams.reduce(function (accum, stream) {
             return accum + 4 * eventRadius;
         }, 0) + 2 * eventRadius;
@@ -532,7 +554,7 @@ var MarbleDrawer = (function () {
 
         // On mouse down add an event to the current stream.
         var mouseDown = Rx.Observable.fromEvent(canvas, 'mousedown');
-        Util.triggeredObservable(mousePos, mouseDown).subscribe(MarbleDrawer.mouseDownHandler(streams));
+        Util.triggeredObservable(mousePos, mouseDown).subscribe(this.mouseDownHandler(streams));
 
         // When a key is pressed, add the appriopriate notification to the stream.
         var keypress = Rx.Observable.fromEvent(canvas, 'keypress');
@@ -541,7 +563,7 @@ var MarbleDrawer = (function () {
         });
 
         // Every keypress, trigger the output.
-        Util.triggeredObservable(combined, keypress).subscribe(MarbleDrawer.keyboardHandler(streams));
+        Util.triggeredObservable(combined, keypress).subscribe(this.keyboardHandler(streams));
 
         // On any user event, update the canvas.
         mousePos.combineLatest(keypress.merge(mouseDown).startWith(''), // Only return the mouse pos
@@ -550,10 +572,10 @@ var MarbleDrawer = (function () {
         }).throttle(1).subscribe(function (mouseEvt) {
             // Update the output stream
             var outputStream = createOutputStream(streams, op_y);
-            MarbleDrawer.render(canvas, mouseEvt, streams, outputStream, op_y);
+            _this.render(canvas, mouseEvt, streams, outputStream, op_y);
         });
     }
-    MarbleDrawer.initialiseStreamsJson = function (streamJson) {
+    MarbleDrawer.prototype.initialiseStreamsJson = function (streamJson) {
         var y = 2 * eventRadius;
         return streamJson["streams"].map(function (json) {
             var r = BasicStream.fromJson(json, y);
@@ -562,7 +584,7 @@ var MarbleDrawer = (function () {
         });
     };
 
-    MarbleDrawer.mouseDownHandler = function (streams) {
+    MarbleDrawer.prototype.mouseDownHandler = function (streams) {
         return function (mousePos) {
             var currStream = Util.getCurrentStream(mousePos, streams);
             if (currStream)
@@ -570,7 +592,7 @@ var MarbleDrawer = (function () {
         };
     };
 
-    MarbleDrawer.keyboardHandler = function (streams) {
+    MarbleDrawer.prototype.keyboardHandler = function (streams) {
         return function (evts) {
             var mousePos = evts[2];
             var currStream = Util.getCurrentStream(mousePos, streams);
@@ -586,7 +608,7 @@ var MarbleDrawer = (function () {
         };
     };
 
-    MarbleDrawer.render = function (canvas, mousePos, inputStreams, outputStream, op_y) {
+    MarbleDrawer.prototype.render = function (canvas, mousePos, inputStreams, outputStream, op_y) {
         var ctx = canvas.getContext("2d");
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         var gfx = new Graphics(canvas, ctx);

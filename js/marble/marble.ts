@@ -8,7 +8,7 @@
 var eventRadius = 20;
 
 class Notification {
-	color: string = Util.random_color();
+	color: string = Util.randomColor();
 
 	constructor(public x: number, color?: string){
 		if(color) this.color = color;
@@ -374,12 +374,12 @@ class Graphics {
 
 
 
-class Util {
+module Util {
 	/**
 	 * Get the current input stream that is being moused over.
 	 * @return The currently mouse over stream or null
 	 **/
-	static getCurrentStream(mousePos : MousePos, inputStreams: BasicStream[]): BasicStream {
+	export function getCurrentStream(mousePos : MousePos, inputStreams: BasicStream[]): BasicStream {
 		var selectedStream : BasicStream = null
 		var minDistance = Number.POSITIVE_INFINITY
 		for (var i in inputStreams) {
@@ -394,14 +394,14 @@ class Util {
 		return selectedStream
 	}
 
-	static diff(a : number, b : number) : number {
+	export function diff(a : number, b : number) : number {
 		return Math.abs(a - b);
 	}
 
 	/**
 	 * Get the largest y value from the streams and add 3 * eventRadius
 	 **/
-	static operator_y(streams: Stream<any>[]) {
+	export function operator_y(streams: Stream<any>[]) {
 		return streams.reduce((accum : number, stream : Stream<any>) => {
 			if( stream.start.y > accum ) {
 				return stream.start.y
@@ -413,7 +413,7 @@ class Util {
 		}, 0) + eventRadius * 3
 	}
 
-	static random_color() : string {
+	export function randomColor() : string {
 		var letters = "0123456789ABCDEF".split("");
 		var color = "#";
 		var i = 0;
@@ -424,18 +424,27 @@ class Util {
 		return color;
 	}
 
-	static httpGet(theUrl : string) : string {
+	export function randomShape() : string {
+		var shapes = ["circle", "square"]
+		return shapes[Util.randomInt(0,1)]
+	}
+
+	export function randomInt(min : number, max: number) : number {
+		return Math.floor(Math.random() * (max-min+1) + min)
+	}
+
+	export function httpGet(theUrl : string) : string {
 		var xmlHttp = new XMLHttpRequest();
 		xmlHttp.open("GET", theUrl, false);
 		xmlHttp.send(null);
 		return xmlHttp.responseText;
 	}
 
-	static getJson(url : string) : JSON {
+	export function getJson(url : string) : JSON {
 		return JSON.parse(Util.httpGet(url));
 	}
 
-	static triggeredObservable<T>(source : Rx.Observable<T>, trigger : Rx.Observable<any>) {
+	export function triggeredObservable<T>(source : Rx.Observable<T>, trigger : Rx.Observable<any>) {
 		return Rx.Observable.create(function (observer) {
 			var atEnd : boolean
 			var hasValue : boolean
@@ -465,16 +474,16 @@ class Util {
 	/**
 	 * Calculates the y intersection on the line from start to end at x.
 	 **/
-	static intersectionPoints(start: Point, end: Point, x: number) : number {
+	export function intersectionPoints(start: Point, end: Point, x: number) : number {
 		var coeff = (end.y - start.y) / (end.x - start.x)
 		return (x - start.x) * coeff + start.y
 	}
 
-	static intersection(stream: Stream<any>, x: number) : number {
+	export function intersection(stream: Stream<any>, x: number) : number {
 		return Util.intersectionPoints(stream.start, stream.end, x)
 	}
 
-	static normalizeVector(vector: Point): Point {
+	export function normalizeVector(vector: Point): Point {
 		var x = vector.x
 		var y = vector.y
 		var len = x*x + y*y
@@ -485,13 +494,14 @@ class Util {
 		return undefined
 	}
 
-	static perpendicularVector(vector: Point): Point {
+	export function perpendicularVector(vector: Point): Point {
 		return {x: -vector.y, y: vector.x}
 	}
 
-	static makeVector(start: Point, end: Point): Point {
+	export function makeVector(start: Point, end: Point): Point {
 		return {x: end.x - start.x, y: end.y - start.y}
 	}
+
 }
 
 interface Tuple2<T1, T2> {
@@ -504,7 +514,7 @@ class MarbleDrawer {
 			streamJson: JSON,
 			createOutputStream: {(streams: BasicStream[], op_y: number): Stream<any>}) //(Stream[], number) => Stream
 	{
-		var streams : BasicStream[] = MarbleDrawer.initialiseStreamsJson(streamJson)
+		var streams : BasicStream[] = this.initialiseStreamsJson(streamJson)
 		var op_y = streams.reduce((accum : number, stream) => { return accum + 4 * eventRadius }, 0)
 			+ 2 * eventRadius
 		var mousePos: Rx.Observable<MousePos> = Rx.Observable.fromEvent(canvas, 'mousemove')
@@ -527,14 +537,14 @@ class MarbleDrawer {
 		// On mouse down add an event to the current stream.
 		var mouseDown = Rx.Observable.fromEvent(canvas, 'mousedown')
 		Util.triggeredObservable(mousePos, mouseDown)
-			.subscribe(MarbleDrawer.mouseDownHandler(streams))
+			.subscribe(this.mouseDownHandler(streams))
 
 		// When a key is pressed, add the appriopriate notification to the stream.
 		var keypress = <Rx.Observable<KeyboardEvent>> Rx.Observable.fromEvent(canvas, 'keypress');
 		var combined : Rx.Observable<Tuple2<KeyboardEvent, MousePos>> = keypress.combineLatest(mousePos, (s1, s2) =>{ return {1: s1, 2: s2} })
 		// Every keypress, trigger the output.
 		Util.triggeredObservable(combined, keypress)
-			.subscribe(MarbleDrawer.keyboardHandler(streams))
+			.subscribe(this.keyboardHandler(streams))
 
 		// On any user event, update the canvas.
 		mousePos.combineLatest(
@@ -546,11 +556,11 @@ class MarbleDrawer {
 			.subscribe( (mouseEvt: MousePos) => {
 				// Update the output stream
 				var outputStream = createOutputStream(streams, op_y)
-				MarbleDrawer.render(canvas, mouseEvt, streams, outputStream, op_y)
+				this.render(canvas, mouseEvt, streams, outputStream, op_y)
 			})
 	}
 
-	static initialiseStreamsJson(streamJson: JSON) : BasicStream[] {
+	initialiseStreamsJson(streamJson: JSON) : BasicStream[] {
 		var y = 2*eventRadius
 		return streamJson["streams"].map(json => {
 			var r = BasicStream.fromJson(json, y)
@@ -559,7 +569,7 @@ class MarbleDrawer {
 		})
 	}
 
-	static mouseDownHandler(streams: BasicStream[])
+	mouseDownHandler(streams: BasicStream[])
 		: (MousePos) => void {
 		return (mousePos: MousePos) => {
 			var currStream = Util.getCurrentStream(mousePos, streams);
@@ -567,7 +577,7 @@ class MarbleDrawer {
 		}
 	}
 
-	static keyboardHandler(streams: BasicStream[])
+	keyboardHandler(streams: BasicStream[])
 	: (Tuple2) => void { // Tuple2<KeyboardEvent, MousePos> => void
 		return (evts: Tuple2<KeyboardEvent, MousePos>) => {
 			var mousePos = evts[2];
@@ -584,7 +594,7 @@ class MarbleDrawer {
 		}
 	}
 
-	static render(canvas: HTMLCanvasElement,
+	render(canvas: HTMLCanvasElement,
 			mousePos: MousePos,
 			inputStreams: BasicStream[],
 			outputStream: Stream<any>,
