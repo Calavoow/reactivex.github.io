@@ -25,7 +25,7 @@ module GroupBy {
 				// 45 degree angle
 				var norm = Util.normalizeVector({x: 1, y: 1})
 				var len = endx - stream.start.x
-				return {x: start.x + len * norm.x , y: start.y + len * norm.y}
+				return {x: start.x + len , y: start.y + len * norm.y}
 			}
 			obs.subscribe((evt) => {
 				stream.addEvt(evt)
