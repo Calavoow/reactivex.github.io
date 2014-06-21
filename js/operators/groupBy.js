@@ -74,7 +74,7 @@ var GroupBy;
         GroupByStream.prototype.height = function () {
             return Math.max.apply(null, this.notifications.map(function (notif) {
                 return notif.height();
-            }));
+            }).concat(this.end.y + 2 * eventRadius));
         };
         return GroupByStream;
     })(OutputStream);

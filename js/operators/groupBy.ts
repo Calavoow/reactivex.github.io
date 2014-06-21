@@ -57,7 +57,7 @@ module GroupBy {
 		}
 
 		height() : number {
-			return Math.max.apply(null, this.notifications.map((notif) => { return notif.height() }))
+			return Math.max.apply(null, this.notifications.map((notif) => { return notif.height() }).concat(this.end.y + 2*eventRadius))
 		}
 	}
 
