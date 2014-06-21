@@ -28,20 +28,22 @@ var GroupBy;
         return GroupByDrawer;
     })(MarbleDrawer);
 
-    var OutputStream = (function (_super) {
-        __extends(OutputStream, _super);
-        function OutputStream() {
+    var GroupByStream = (function (_super) {
+        __extends(GroupByStream, _super);
+        function GroupByStream() {
             _super.apply(this, arguments);
         }
-        OutputStream.prototype.addObservable = function (obs, scheduler) {
-            var stream = new BasicStream({ x: scheduler.now(), y: this.start.y }, { x: 1337, y: 1337 }, true);
-
+        GroupByStream.prototype.addObservable = function (obs, scheduler) {
             var calcEnd = function (start, endx) {
-                // 45 degree angle
+                // -45 degree angle
                 var norm = Util.normalizeVector({ x: 1, y: 1 });
-                var len = endx - stream.start.x;
-                return { x: start.x + len, y: start.y + len * norm.y };
+                var len = endx - start.x;
+                return { x: endx, y: start.y + len * norm.y };
             };
+
+            var start = { x: scheduler.now(), y: this.start.y };
+            var stream = new BasicStream(start, calcEnd(start, 500), true);
+
             obs.subscribe(function (evt) {
                 stream.addEvt(evt);
             }, function (err) {
@@ -62,14 +64,20 @@ var GroupBy;
             return this;
         };
 
-        OutputStream.prototype.draw = function (gfx, op_y) {
+        GroupByStream.prototype.draw = function (gfx, op_y) {
             this.notifications.forEach(function (stream) {
                 stream.draw(gfx, op_y);
             });
             gfx.draw_arrow(this.start, this.end);
         };
-        return OutputStream;
-    })(Stream);
+
+        GroupByStream.prototype.height = function () {
+            return Math.max.apply(null, this.notifications.map(function (notif) {
+                return notif.height();
+            }));
+        };
+        return GroupByStream;
+    })(OutputStream);
 
     var StreamError = (function (_super) {
         __extends(StreamError, _super);
@@ -81,6 +89,10 @@ var GroupBy;
         }
         StreamError.prototype.draw = function (gfx, op_y) {
             _super.prototype.draw.call(this, gfx, this.start.y, op_y, this.isOutput);
+        };
+
+        StreamError.prototype.height = function () {
+            return this.start.y;
         };
         return StreamError;
     })(Err);
@@ -96,6 +108,10 @@ var GroupBy;
         StreamComplete.prototype.draw = function (gfx, op_y) {
             _super.prototype.draw.call(this, gfx, this.start.y, op_y, this.isOutput);
         };
+
+        StreamComplete.prototype.height = function () {
+            return this.start.y;
+        };
         return StreamComplete;
     })(Complete);
 
@@ -105,7 +121,7 @@ var GroupBy;
         // Only one stream is allowed
         var inputStream = streams[0].toObservable(scheduler);
         var y = op_y + 6 * eventRadius;
-        var output_stream = new OutputStream({ x: 10, y: y }, { x: 500, y: y }, true);
+        var output_stream = new GroupByStream({ x: 10, y: y }, { x: 500, y: y }, true);
 
         inputStream.groupBy(function (notif) {
             return notif.shape;

@@ -84,6 +84,11 @@ var Complete = (function (_super) {
     return Complete;
 })(Notification);
 
+/**
+* Abstract class Stream, provides the base class for streams.
+*
+* Abstract classes not implemented yet.
+**/
 var Stream = (function () {
     function Stream(start, end, isOutput, shape) {
         this.start = start;
@@ -102,10 +107,24 @@ var Stream = (function () {
     return Stream;
 })();
 
+var OutputStream = (function (_super) {
+    __extends(OutputStream, _super);
+    function OutputStream() {
+        _super.apply(this, arguments);
+    }
+    OutputStream.prototype.height = function () {
+        throw new Error("heightObservable not implemented");
+    };
+    return OutputStream;
+})(Stream);
+
 var BasicStream = (function (_super) {
     __extends(BasicStream, _super);
-    function BasicStream() {
-        _super.apply(this, arguments);
+    function BasicStream(start, end, isOutput, shape) {
+        _super.call(this, start, end, isOutput, shape);
+        this.start = start;
+        this.end = end;
+        this.isOutput = isOutput;
     }
     BasicStream.prototype.addEvent = function (x, shape, color) {
         if (shape)
@@ -224,6 +243,10 @@ var BasicStream = (function (_super) {
         gfx.draw_arrow(this.start, this.end);
     };
 
+    BasicStream.prototype.height = function () {
+        return Math.max(this.start.y, this.end.y) + 2 * eventRadius;
+    };
+
     BasicStream.fromJson = function (json, y) {
         var start = { x: json["start"], y: y };
         var end = { x: json["maxEnd"], y: y };
@@ -247,7 +270,7 @@ var BasicStream = (function (_super) {
         return stream;
     };
     return BasicStream;
-})(Stream);
+})(OutputStream);
 
 /**
 * GRAPHICS
@@ -610,7 +633,11 @@ var MarbleDrawer = (function () {
 
     MarbleDrawer.prototype.render = function (canvas, mousePos, inputStreams, outputStream, op_y) {
         var ctx = canvas.getContext("2d");
+
+        // Adjust context height depending on output stream
+        ctx.canvas.height = outputStream.height();
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+
         var gfx = new Graphics(canvas, ctx);
         var allStreams = inputStreams.concat(outputStream);
         allStreams.forEach(function (stream) {

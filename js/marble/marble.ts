@@ -79,6 +79,11 @@ interface Point {
 	y: number;
 }
 
+/**
+ * Abstract class Stream, provides the base class for streams.
+ *
+ * Abstract classes not implemented yet.
+ **/
 class Stream<T> {
 	shape: string;
 	notifications: T[];
@@ -99,7 +104,20 @@ class Stream<T> {
 	}
 }
 
-class BasicStream extends Stream<Notification> {
+class OutputStream<T> extends Stream<T> {
+	height(): number {
+		throw new Error("heightObservable not implemented")
+	}
+}
+
+class BasicStream extends OutputStream<Notification> {
+	constructor(public start : Point,
+			public end: Point,
+			public isOutput : boolean,
+			shape?: string) {
+		super(start, end, isOutput, shape)
+	}
+
 	addEvent(x: number, shape?: string, color?: string) : BasicStream {
 		if(shape) this.addEvt(new Evt(x, shape, color))
 		else this.addEvt(new Evt(x, this.shape, color))
@@ -185,7 +203,6 @@ class BasicStream extends Stream<Notification> {
 		}
 	}
 
-
 	/**
 	 * Find if the mouse is on a notification in this stream.
 	 * @return The index of the notification it is on otherwise null.
@@ -214,6 +231,10 @@ class BasicStream extends Stream<Notification> {
 		gfx.draw_arrow(this.start, this.end)
 	}
 
+	height(): number {
+		return Math.max(this.start.y, this.end.y) + 2*eventRadius
+	}
+
 	static fromJson(json: JSON, y : number) : BasicStream {
 		var start = {x: json["start"], y: y}
 		var end = {x: json["maxEnd"], y: y}
@@ -231,6 +252,7 @@ class BasicStream extends Stream<Notification> {
 		return stream;
 	}
 }
+
 
 interface MousePos {
 	x: number;
@@ -372,8 +394,6 @@ class Graphics {
 	}
 }
 
-
-
 module Util {
 	/**
 	 * Get the current input stream that is being moused over.
@@ -512,7 +532,7 @@ interface Tuple2<T1, T2> {
 class MarbleDrawer {
 	constructor(canvas: HTMLCanvasElement,
 			streamJson: JSON,
-			createOutputStream: {(streams: BasicStream[], op_y: number): Stream<any>}) //(Stream[], number) => Stream
+			createOutputStream: {(streams: BasicStream[], op_y: number): OutputStream<any>}) //(Stream[], number) => Stream
 	{
 		var streams : BasicStream[] = this.initialiseStreamsJson(streamJson)
 		var op_y = streams.reduce((accum : number, stream) => { return accum + 4 * eventRadius }, 0)
@@ -531,7 +551,7 @@ class MarbleDrawer {
 			.startWith({x: -1337, y:-1337}) // Default position
 
 		// On mouse out of the canvas set the mouse position to somewhere 'invisible'.
-		var mouseOut = Rx.Observable.fromEvent(canvas, 'mouseout');
+		var mouseOut = Rx.Observable.fromEvent(canvas, 'mouseout')
 		mousePos = mousePos.merge(mouseOut.map((evt) => { return {x: -1337, y:-1337} }))
 
 		// On mouse down add an event to the current stream.
@@ -540,7 +560,7 @@ class MarbleDrawer {
 			.subscribe(this.mouseDownHandler(streams))
 
 		// When a key is pressed, add the appriopriate notification to the stream.
-		var keypress = <Rx.Observable<KeyboardEvent>> Rx.Observable.fromEvent(canvas, 'keypress');
+		var keypress = <Rx.Observable<KeyboardEvent>> Rx.Observable.fromEvent(canvas, 'keypress')
 		var combined : Rx.Observable<Tuple2<KeyboardEvent, MousePos>> = keypress.combineLatest(mousePos, (s1, s2) =>{ return {1: s1, 2: s2} })
 		// Every keypress, trigger the output.
 		Util.triggeredObservable(combined, keypress)
@@ -572,7 +592,7 @@ class MarbleDrawer {
 	mouseDownHandler(streams: BasicStream[])
 		: (MousePos) => void {
 		return (mousePos: MousePos) => {
-			var currStream = Util.getCurrentStream(mousePos, streams);
+			var currStream = Util.getCurrentStream(mousePos, streams)
 			if(currStream) currStream.addEvent(mousePos.x)
 		}
 	}
@@ -580,15 +600,15 @@ class MarbleDrawer {
 	keyboardHandler(streams: BasicStream[])
 	: (Tuple2) => void { // Tuple2<KeyboardEvent, MousePos> => void
 		return (evts: Tuple2<KeyboardEvent, MousePos>) => {
-			var mousePos = evts[2];
-			var currStream = Util.getCurrentStream(mousePos, streams);
+			var mousePos = evts[2]
+			var currStream = Util.getCurrentStream(mousePos, streams)
 			if(currStream) {
 				switch (evts[1].which) {
 					case 101:
-						currStream.setError(mousePos.x);
-						break;
+						currStream.setError(mousePos.x)
+						break
 					case 99:
-						currStream.setCompleteTime(mousePos.x);
+						currStream.setCompleteTime(mousePos.x)
 				}
 			}
 		}
@@ -597,15 +617,18 @@ class MarbleDrawer {
 	render(canvas: HTMLCanvasElement,
 			mousePos: MousePos,
 			inputStreams: BasicStream[],
-			outputStream: Stream<any>,
+			outputStream: OutputStream<any>,
 			op_y: number)
 	{
-		var ctx = canvas.getContext("2d");
-		ctx.clearRect(0, 0, canvas.width, canvas.height);
-		var gfx = new Graphics(canvas, ctx);
+		var ctx = canvas.getContext("2d")
+		// Adjust context height depending on output stream
+		ctx.canvas.height = outputStream.height()
+		ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+		var gfx = new Graphics(canvas, ctx)
 		var allStreams = (<Stream<any>[]> inputStreams).concat(outputStream)
-		allStreams.forEach((stream) => {stream.draw(gfx, op_y)});
-		gfx.draw_cursor(mousePos, Util.getCurrentStream(mousePos, inputStreams));
-		gfx.draw_operator(op_y);
+		allStreams.forEach((stream) => {stream.draw(gfx, op_y)})
+		gfx.draw_cursor(mousePos, Util.getCurrentStream(mousePos, inputStreams))
+		gfx.draw_operator(op_y)
 	}
 }

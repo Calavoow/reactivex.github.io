@@ -17,16 +17,18 @@ module GroupBy {
 		}
 	}
 
-	class OutputStream extends Stream<Stream<Notification>> {
-		addObservable(obs: Rx.GroupedObservable<string, Evt>, scheduler: Rx.Scheduler) : OutputStream {
-			var stream = new BasicStream({x: scheduler.now(), y: this.start.y}, {x: 1337, y:1337}, true)
-
+	class GroupByStream extends OutputStream<OutputStream<Notification>> {
+		addObservable(obs: Rx.GroupedObservable<string, Evt>, scheduler: Rx.Scheduler) : GroupByStream {
 			var calcEnd = (start: Point, endx : number) => {
-				// 45 degree angle
+				// -45 degree angle
 				var norm = Util.normalizeVector({x: 1, y: 1})
-				var len = endx - stream.start.x
-				return {x: start.x + len , y: start.y + len * norm.y}
+				var len = endx - start.x
+				return {x: endx, y: start.y + len * norm.y}
 			}
+
+			var start = {x: scheduler.now(), y: this.start.y}
+			var stream = new BasicStream(start, calcEnd(start, 500), true)
+
 			obs.subscribe((evt) => {
 				stream.addEvt(evt)
 			}, (err) => {
@@ -54,9 +56,12 @@ module GroupBy {
 			gfx.draw_arrow(this.start, this.end)
 		}
 
+		height() : number {
+			return Math.max.apply(null, this.notifications.map((notif) => { return notif.height() }))
+		}
 	}
 
-	class StreamError extends Err implements Stream<any> {
+	class StreamError extends Err implements OutputStream<any> {
 		color: string
 		shape : string
 		notifications: any[] = []
@@ -70,6 +75,10 @@ module GroupBy {
 
 		draw(gfx: Graphics, op_y:number) : void {
 			super.draw(gfx, this.start.y, op_y, this.isOutput)  
+		}
+
+		height() {
+			return this.start.y
 		}
 	}
 
@@ -88,15 +97,19 @@ module GroupBy {
 		draw(gfx: Graphics, op_y:number) : void {
 			super.draw(gfx, this.start.y, op_y, this.isOutput)  
 		}
+
+		height() {
+			return this.start.y
+		}
 	}
 
-	function create_output_stream(streams: BasicStream[], op_y: number) : OutputStream {
+	function create_output_stream(streams: BasicStream[], op_y: number) : GroupByStream {
 		var scheduler = new Rx.TestScheduler()
 
 		// Only one stream is allowed
 		var inputStream = streams[0].toObservable(scheduler)
 		var y = op_y + 6*eventRadius
-		var output_stream : OutputStream = new OutputStream({x: 10, y: y}, {x: 500, y: y}, true)
+		var output_stream = new GroupByStream({x: 10, y: y}, {x: 500, y: y}, true)
 
 		inputStream.groupBy((notif) => notif.shape)
 			.subscribe((evt) => {
