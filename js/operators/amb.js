@@ -4,7 +4,17 @@ var Amb;
     window.addEventListener("load", function () {
         var canvas = document.getElementById("amb");
         var streamJson = Util.getJson("premade/amb.json");
-        var marbleDrawer = new MarbleDrawer(canvas, streamJson, create_output_stream);
+
+        // Json output
+        var preformat = document.getElementById("ambJson");
+        var button = document.getElementById("ambJsonButton");
+        var jsonCreate = Rx.Observable.fromEvent(button, 'click');
+        var jsonOutput = function (outputStream) {
+            preformat.style.display = "";
+            preformat.innerHTML = JSON.stringify({ streams: [outputStream.toJson()] }, undefined, 2);
+        };
+
+        var marbleDrawer = new MarbleDrawer(canvas, streamJson, create_output_stream, jsonCreate, jsonOutput);
     });
 
     function create_output_stream(streams, op_y) {

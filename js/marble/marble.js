@@ -26,6 +26,10 @@ var Notification = (function () {
     Notification.prototype.draw = function (gfx, y, op_y, isOutput) {
         throw new Error("draw not implemented");
     };
+
+    Notification.prototype.toJson = function () {
+        throw new Error("toJSON not implemented");
+    };
     return Notification;
 })();
 
@@ -43,12 +47,19 @@ var Evt = (function (_super) {
     Evt.prototype.draw = function (gfx, y, op_y, isOutput) {
         switch (this.shape) {
             case "circle":
-                gfx.fill_circle(this.x, y, this.color, false);
+                gfx.circle(this.x, y, this.color, false, true);
                 break;
             case "square":
-                gfx.fill_square(this.x, y, this.color, false);
+                gfx.square(this.x, y, this.color, false, true);
+                break;
+            case "triangle":
+                gfx.triangle(this.x, y, this.color, false, true);
         }
         gfx.draw_arrow_to_op(this, y, op_y, isOutput);
+    };
+
+    Evt.prototype.toJson = function () {
+        return { x: this.x, shape: this.shape, type: "Event", color: this.color };
     };
     return Evt;
 })(Notification);
@@ -66,6 +77,10 @@ var Err = (function (_super) {
         gfx.draw_cross(this.x, y, this.color);
         gfx.draw_arrow_to_op(this, y, op_y, isOutput);
     };
+
+    Err.prototype.toJson = function () {
+        return { x: this.x, type: "Error", color: this.color };
+    };
     return Err;
 })(Notification);
 
@@ -80,6 +95,10 @@ var Complete = (function (_super) {
 
     Complete.prototype.draw = function (gfx, y, op_y, isOutput) {
         gfx.draw_line(this.x, y - eventRadius, this.x, y + eventRadius, "#000000");
+    };
+
+    Complete.prototype.toJson = function () {
+        return { x: this.x, type: "Complete" };
     };
     return Complete;
 })(Notification);
@@ -114,6 +133,10 @@ var OutputStream = (function (_super) {
     }
     OutputStream.prototype.height = function () {
         throw new Error("heightObservable not implemented");
+    };
+
+    OutputStream.prototype.toJson = function () {
+        throw new Error("toJson not implemented");
     };
     return OutputStream;
 })(Stream);
@@ -269,6 +292,17 @@ var BasicStream = (function (_super) {
         });
         return stream;
     };
+
+    BasicStream.prototype.toJson = function () {
+        return {
+            start: this.start.x,
+            end: this.end.x,
+            notifications: this.notifications.map(function (notif) {
+                return notif.toJson();
+            }),
+            shape: this.shape
+        };
+    };
     return BasicStream;
 })(OutputStream);
 
@@ -295,9 +329,13 @@ var Graphics = (function () {
             var y = Util.intersection(currStream, mousePos.x);
             switch (currStream.shape) {
                 case "circle":
-                    return this.draw_circle(mousePos.x, y, "red", isMarked);
+                    this.circle(mousePos.x, y, "red", isMarked, false);
+                    break;
                 case "square":
-                    return this.draw_square(mousePos.x, y, "red", isMarked);
+                    this.square(mousePos.x, y, "red", isMarked, false);
+                    break;
+                case "triangle":
+                    this.triangle(mousePos.x, y, "red", isMarked, false);
             }
         }
     };
@@ -366,39 +404,41 @@ var Graphics = (function () {
         this.ctx.stroke();
     };
 
-    Graphics.prototype.draw_circle = function (centerx, centery, color, isMarked) {
-        this.circle(centerx, centery, color, isMarked, function (ctx) {
-            ctx.stroke();
-        });
-    };
-
-    Graphics.prototype.fill_circle = function (centerx, centery, color, isMarked) {
-        this.circle(centerx, centery, color, isMarked, function (ctx) {
-            ctx.fill();
-        });
-    };
-
-    Graphics.prototype.circle = function (centerx, centery, color, isMarked, drawFunc) {
+    Graphics.prototype.circle = function (centerx, centery, color, isMarked, doFill) {
         this.ctx.beginPath();
         this.ctx.arc(centerx, centery, eventRadius, 0, 2 * Math.PI, false);
-        this.ctx.fillStyle = color;
-        drawFunc(this.ctx);
+        if (doFill) {
+            this.ctx.fillStyle = color;
+            this.ctx.fill();
+        }
         this.ctx.lineWidth = 3;
         this.ctx.strokeStyle = (isMarked ? "red" : "#000000");
         this.ctx.stroke();
     };
 
-    Graphics.prototype.draw_square = function (centerx, centery, color, isMarked) {
-        this.square(centerx, centery, color, isMarked, false);
-    };
-
-    Graphics.prototype.fill_square = function (centerx, centery, color, isMarked) {
-        this.square(centerx, centery, color, isMarked, true);
-    };
-
     Graphics.prototype.square = function (centerx, centery, color, isMarked, doFill) {
         this.ctx.beginPath();
         this.ctx.rect(centerx - eventRadius, centery - eventRadius, 2 * eventRadius, 2 * eventRadius);
+        if (doFill) {
+            this.ctx.fillStyle = color;
+            this.ctx.fill();
+        }
+        this.ctx.lineWidth = 3;
+        this.ctx.strokeStyle = (isMarked ? "red" : "#000000");
+        this.ctx.stroke();
+    };
+
+    /**
+    * Draw an isosecles triangle
+    *
+    * An equilateral triangle looks bad, because it looks unaligned with the square and circle.
+    **/
+    Graphics.prototype.triangle = function (centerx, centery, color, isMarked, doFill) {
+        this.ctx.beginPath();
+        this.ctx.moveTo(centerx, centery - eventRadius);
+        this.ctx.lineTo(centerx + Math.cos(7 / 6 * Math.PI) * eventRadius, centery + eventRadius);
+        this.ctx.lineTo(centerx + Math.cos(11 / 6 * Math.PI) * eventRadius, centery + eventRadius);
+        this.ctx.closePath();
         if (doFill) {
             this.ctx.fillStyle = color;
             this.ctx.fill();
@@ -466,8 +506,8 @@ var Util;
     Util.randomColor = randomColor;
 
     function randomShape() {
-        var shapes = ["circle", "square"];
-        return shapes[Util.randomInt(0, 1)];
+        var shapes = ["circle", "square", "triangle"];
+        return shapes[Util.randomInt(0, 2)];
     }
     Util.randomShape = randomShape;
 
@@ -552,7 +592,7 @@ var Util;
 })(Util || (Util = {}));
 
 var MarbleDrawer = (function () {
-    function MarbleDrawer(canvas, streamJson, createOutputStream) {
+    function MarbleDrawer(canvas, streamJson, createOutputStream, createJson, jsonOutput) {
         var _this = this;
         var streams = this.initialiseStreamsJson(streamJson);
         var op_y = streams.reduce(function (accum, stream) {
@@ -596,6 +636,12 @@ var MarbleDrawer = (function () {
             // Update the output stream
             var outputStream = createOutputStream(streams, op_y);
             _this.render(canvas, mouseEvt, streams, outputStream, op_y);
+        });
+
+        // On every create Json event, call the Json output with the output stream.
+        createJson.subscribe(function () {
+            var outputStream = createOutputStream(streams, op_y);
+            jsonOutput(outputStream);
         });
     }
     MarbleDrawer.prototype.initialiseStreamsJson = function (streamJson) {

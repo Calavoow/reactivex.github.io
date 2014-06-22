@@ -4,7 +4,17 @@ module GroupBy {
 	window.addEventListener("load", () => {
 		var canvas = <HTMLCanvasElement> document.getElementById("groupBy")
 		var streamJson = Util.getJson("premade/groupBy.json")
-		var groupByDrawer = new GroupByDrawer(canvas, streamJson, create_output_stream)
+
+		// Json output
+		var preformat = document.getElementById("groupByJson")
+		var button = document.getElementById("groupByJsonButton")
+		var jsonCreate = Rx.Observable.fromEvent(button, 'click')
+		var jsonOutput = (outputStream: OutputStream<any>) => {
+			preformat.style.display = "" //Unset hide
+			preformat.innerHTML = JSON.stringify({streams: [outputStream.toJson()]}, undefined, 2)
+		}
+
+		var groupByDrawer = new GroupByDrawer(canvas, streamJson, create_output_stream, jsonCreate, jsonOutput)
 	})
 
 	class GroupByDrawer extends MarbleDrawer {
@@ -58,6 +68,14 @@ module GroupBy {
 
 		height() : number {
 			return Math.max.apply(null, this.notifications.map((notif) => { return notif.height() }).concat(this.end.y + 2*eventRadius))
+		}
+
+		toJson() : any {
+			return {
+				start: this.start.x,
+				end: this.end.x,
+				streams: this.notifications.map((stream) => {return stream.toJson()})
+			}
 		}
 	}
 

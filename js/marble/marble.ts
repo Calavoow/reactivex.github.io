@@ -10,7 +10,7 @@ var eventRadius = 20;
 class Notification {
 	color: string = Util.randomColor();
 
-	constructor(public x: number, color?: string){
+	constructor(public x: number, color?: string) {
 		if(color) this.color = color;
 	}
 
@@ -20,6 +20,10 @@ class Notification {
 
 	draw(gfx: Graphics, y : number, op_y: number, isOutput: boolean) : void {
 		throw new Error("draw not implemented")
+	}
+
+	toJson() : JSON {
+		throw new Error("toJSON not implemented")
 	}
 }
 
@@ -36,12 +40,19 @@ class Evt extends Notification {
 	draw(gfx: Graphics, y : number, op_y: number, isOutput: boolean) : void {
 		switch (this.shape) {
 			case "circle":
-				gfx.fill_circle(this.x, y, this.color, false)
-				break;
+				gfx.circle(this.x, y, this.color, false, true)
+				break
 			case "square":
-				gfx.fill_square(this.x, y, this.color, false)
+				gfx.square(this.x, y, this.color, false, true)
+				break
+			case "triangle":
+				gfx.triangle(this.x, y, this.color, false, true)
 		}
 		gfx.draw_arrow_to_op(this, y, op_y, isOutput);
+	}
+
+	toJson() : any {
+		return {x: this.x, shape: this.shape, type: "Event", color: this.color}
 	}
 }
 
@@ -58,6 +69,10 @@ class Err extends Notification{
 		gfx.draw_cross(this.x, y, this.color)
 		gfx.draw_arrow_to_op(this, y, op_y, isOutput)
 	}
+
+	toJson() : any {
+		return {x: this.x, type: "Error", color: this.color}
+	}
 }
 
 class Complete extends Notification {
@@ -71,6 +86,10 @@ class Complete extends Notification {
 
 	draw(gfx: Graphics, y : number, op_y: number, isOutput: boolean) : void {
 		gfx.draw_line(this.x, y - eventRadius, this.x, y + eventRadius, "#000000");
+	}
+
+	toJson(): any {
+		return {x: this.x, type: "Complete"}
 	}
 }
 
@@ -107,6 +126,10 @@ class Stream<T> {
 class OutputStream<T> extends Stream<T> {
 	height(): number {
 		throw new Error("heightObservable not implemented")
+	}
+
+	toJson() : any {
+		throw new Error("toJson not implemented")
 	}
 }
 
@@ -251,6 +274,15 @@ class BasicStream extends OutputStream<Notification> {
 		})
 		return stream;
 	}
+	
+	toJson() : any {
+		return {
+			start: this.start.x,
+			end: this.end.x,
+			notifications: this.notifications.map((notif) => {return notif.toJson()}),
+			shape: this.shape
+		}
+	}
 }
 
 
@@ -281,9 +313,13 @@ class Graphics {
 			var y = Util.intersection(currStream, mousePos.x)
 			switch (currStream.shape) {
 				case "circle":
-					return this.draw_circle(mousePos.x, y, "red", isMarked)
+					this.circle(mousePos.x, y, "red", isMarked, false)
+					break
 				case "square":
-					return this.draw_square(mousePos.x, y, "red", isMarked)
+					this.square(mousePos.x, y, "red", isMarked, false)
+					break
+				case "triangle":
+					this.triangle(mousePos.x, y, "red", isMarked, false)
 			}
 		}
 	}
@@ -351,46 +387,48 @@ class Graphics {
 		this.ctx.stroke();
 	}
 
-	draw_circle(centerx : number, centery : number, color : string, isMarked : boolean) : void {
-		this.circle(centerx, centery, color, isMarked, function(ctx) {
-			ctx.stroke();
-		});
-	}
-
-	fill_circle(centerx : number, centery : number, color : string, isMarked : boolean) : void {
-		this.circle(centerx, centery, color, isMarked, function(ctx) {
-			ctx.fill();
-		});
-	}
-
-	circle(centerx : number, centery : number, color : string, isMarked : boolean, drawFunc : (CanvasRenderingContext2D) => void) : void {
-		this.ctx.beginPath();
-		this.ctx.arc(centerx, centery, eventRadius, 0, 2 * Math.PI, false);
-		this.ctx.fillStyle = color;
-		drawFunc(this.ctx);
-		this.ctx.lineWidth = 3;
-		this.ctx.strokeStyle = (isMarked ? "red" : "#000000");
-		this.ctx.stroke();
-	}
-
-	draw_square(centerx : number, centery : number, color : string, isMarked : boolean) : void {
-		this.square(centerx, centery, color, isMarked, false);
-	}
-
-	fill_square(centerx : number, centery : number, color : string, isMarked : boolean) : void {
-		this.square(centerx, centery, color, isMarked, true);
+	circle(centerx : number, centery : number, color: string, isMarked : boolean, doFill: boolean) : void {
+		this.ctx.beginPath()
+		this.ctx.arc(centerx, centery, eventRadius, 0, 2 * Math.PI, false)
+		if(doFill) {
+			this.ctx.fillStyle = color
+			this.ctx.fill()
+		}
+		this.ctx.lineWidth = 3
+		this.ctx.strokeStyle = (isMarked ? "red" : "#000000")
+		this.ctx.stroke()
 	}
 
 	square(centerx : number, centery : number, color : string, isMarked : boolean, doFill : boolean) : void {
-		this.ctx.beginPath();
-		this.ctx.rect(centerx - eventRadius, centery - eventRadius, 2 * eventRadius, 2 * eventRadius);
+		this.ctx.beginPath()
+		this.ctx.rect(centerx - eventRadius, centery - eventRadius, 2 * eventRadius, 2 * eventRadius)
 		if (doFill) {
-			this.ctx.fillStyle = color;
-			this.ctx.fill();
+			this.ctx.fillStyle = color
+			this.ctx.fill()
 		}
-		this.ctx.lineWidth = 3;
-		this.ctx.strokeStyle = (isMarked ? "red" : "#000000");
-		this.ctx.stroke();
+		this.ctx.lineWidth = 3
+		this.ctx.strokeStyle = (isMarked ? "red" : "#000000")
+		this.ctx.stroke()
+	}
+
+	/**
+	 * Draw an isosecles triangle
+	 *
+	 * An equilateral triangle looks bad, because it looks unaligned with the square and circle.
+	 **/
+	triangle(centerx : number, centery : number, color : string, isMarked : boolean, doFill : boolean) : void {
+		this.ctx.beginPath()
+		this.ctx.moveTo(centerx, centery - eventRadius)
+		this.ctx.lineTo(centerx + Math.cos(7/6 * Math.PI) * eventRadius, centery + eventRadius)
+		this.ctx.lineTo(centerx + Math.cos(11/6 * Math.PI) * eventRadius, centery + eventRadius)
+		this.ctx.closePath()
+		if (doFill) {
+			this.ctx.fillStyle = color
+			this.ctx.fill()
+		}
+		this.ctx.lineWidth = 3
+		this.ctx.strokeStyle = (isMarked ? "red" : "#000000")
+		this.ctx.stroke()
 	}
 }
 
@@ -445,8 +483,8 @@ module Util {
 	}
 
 	export function randomShape() : string {
-		var shapes = ["circle", "square"]
-		return shapes[Util.randomInt(0,1)]
+		var shapes = ["circle", "square", "triangle"]
+		return shapes[Util.randomInt(0,2)]
 	}
 
 	export function randomInt(min : number, max: number) : number {
@@ -532,7 +570,9 @@ interface Tuple2<T1, T2> {
 class MarbleDrawer {
 	constructor(canvas: HTMLCanvasElement,
 			streamJson: JSON,
-			createOutputStream: {(streams: BasicStream[], op_y: number): OutputStream<any>}) //(Stream[], number) => Stream
+			createOutputStream: {(streams: BasicStream[], op_y: number): OutputStream<any>}, //(Stream[], number) => Stream
+			createJson: Rx.Observable<any>,
+			jsonOutput: (OutputStream) => void)
 	{
 		var streams : BasicStream[] = this.initialiseStreamsJson(streamJson)
 		var op_y = streams.reduce((accum : number, stream) => { return accum + 4 * eventRadius }, 0)
@@ -578,6 +618,12 @@ class MarbleDrawer {
 				var outputStream = createOutputStream(streams, op_y)
 				this.render(canvas, mouseEvt, streams, outputStream, op_y)
 			})
+
+		// On every create Json event, call the Json output with the output stream.
+		createJson.subscribe( () =>{
+			var outputStream = createOutputStream(streams, op_y)
+			jsonOutput(outputStream)
+		})
 	}
 
 	initialiseStreamsJson(streamJson: JSON) : BasicStream[] {

@@ -10,7 +10,17 @@ var GroupBy;
     window.addEventListener("load", function () {
         var canvas = document.getElementById("groupBy");
         var streamJson = Util.getJson("premade/groupBy.json");
-        var groupByDrawer = new GroupByDrawer(canvas, streamJson, create_output_stream);
+
+        // Json output
+        var preformat = document.getElementById("groupByJson");
+        var button = document.getElementById("groupByJsonButton");
+        var jsonCreate = Rx.Observable.fromEvent(button, 'click');
+        var jsonOutput = function (outputStream) {
+            preformat.style.display = "";
+            preformat.innerHTML = JSON.stringify({ streams: [outputStream.toJson()] }, undefined, 2);
+        };
+
+        var groupByDrawer = new GroupByDrawer(canvas, streamJson, create_output_stream, jsonCreate, jsonOutput);
     });
 
     var GroupByDrawer = (function (_super) {
@@ -75,6 +85,16 @@ var GroupBy;
             return Math.max.apply(null, this.notifications.map(function (notif) {
                 return notif.height();
             }).concat(this.end.y + 2 * eventRadius));
+        };
+
+        GroupByStream.prototype.toJson = function () {
+            return {
+                start: this.start.x,
+                end: this.end.x,
+                streams: this.notifications.map(function (stream) {
+                    return stream.toJson();
+                })
+            };
         };
         return GroupByStream;
     })(OutputStream);
