@@ -19,18 +19,8 @@ module GroupBy {
 			preformat.innerHTML = JSON.stringify({streams: [outputStream.toJson()]}, undefined, 2)
 		}
 
-		var groupByDrawer = new GroupByDrawer(canvas, streamJson, create_output_stream, jsonCreate, jsonOutput, selection)
+		var groupByDrawer = new MarbleDrawer(canvas, streamJson, create_output_stream, jsonCreate, jsonOutput, selection)
 	})
-
-	class GroupByDrawer extends MarbleDrawer {
-		mouseDownHandler(streams: BasicStream[])
-			: (MousePos) => void {
-			return (mousePos: MousePos) => {
-				var currStream = Util.getCurrentStream(mousePos, streams);
-				if(currStream) currStream.addEvent(mousePos.x, Util.randomShape())
-			}
-		}
-	}
 
 	class GroupByStream extends OutputStream<OutputStream<Notification>> {
 		addObservable(obs: Rx.GroupedObservable<string, Evt>, scheduler: Rx.Scheduler) : GroupByStream {
@@ -97,7 +87,7 @@ module GroupBy {
 		}
 
 		draw(gfx: Graphics, op_y:number) : void {
-			super.draw(gfx, this.start.y, op_y, this.isOutput)  
+			super.draw(gfx, this.start.y, this.isOutput, true, op_y)  
 		}
 
 		height() {
@@ -118,7 +108,7 @@ module GroupBy {
 		}
 
 		draw(gfx: Graphics, op_y:number) : void {
-			super.draw(gfx, this.start.y, op_y, this.isOutput)  
+			super.draw(gfx, this.start.y, this.isOutput, true, op_y)  
 		}
 
 		height() {

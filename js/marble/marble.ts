@@ -18,7 +18,11 @@ class Notification {
 		throw new Error("toRecorded not implemented")
 	}
 
-	draw(gfx: Graphics, y : number, op_y: number, isOutput: boolean) : void {
+	drawOnStream(gfx: Graphics, y : number, isOutput: boolean, op_y: number) : void {
+		this.draw(gfx, y, isOutput, true, op_y)
+	}
+
+	draw(gfx: Graphics, y : number, isOutput: boolean, onStream: boolean, op_y?: number, isMarked?: boolean) : void {
 		throw new Error("draw not implemented")
 	}
 
@@ -37,18 +41,24 @@ class Evt extends Notification {
 		return Rx.ReactiveTest.onNext(this.x, this)
 	}
 
-	draw(gfx: Graphics, y : number, op_y: number, isOutput: boolean) : void {
+	draw(gfx: Graphics, y : number, isOutput: boolean, onStream: boolean, op_y?: number, isMarked?: boolean) : void {
+		if(onStream && !op_y) throw new Error("Expected op_y")
+		var marked = false
+		if(isMarked) marked = isMarked
+
 		switch (this.shape) {
 			case "circle":
-				gfx.circle({x: this.x, y: y}, this.color, false, true)
+				gfx.circle({x: this.x, y: y}, this.color, marked, onStream)
 				break
 			case "square":
-				gfx.square({x: this.x, y: y}, this.color, false, true)
+				gfx.square({x: this.x, y: y}, this.color, marked, onStream)
 				break
 			case "triangle":
-				gfx.triangle({x: this.x, y: y}, this.color, false, true)
+				gfx.triangle({x: this.x, y: y}, this.color, marked, onStream)
 		}
-		gfx.draw_arrow_to_op(this, y, op_y, isOutput);
+		if(op_y) {
+			gfx.draw_arrow_to_op(this, y, op_y, isOutput);
+		}
 	}
 
 	toJson() : any {
@@ -65,9 +75,14 @@ class Err extends Notification{
 		return Rx.ReactiveTest.onError(this.x, this)
 	}
 
-	draw(gfx: Graphics, y : number, op_y: number, isOutput: boolean) : void {
-		gfx.cross({x: this.x, y: y}, this.color)
-		gfx.draw_arrow_to_op(this, y, op_y, isOutput)
+	draw(gfx: Graphics, y : number, isOutput: boolean, onStream: boolean, op_y?: number, isMarked?: boolean) : void {
+		var color = this.color
+		if(!onStream) color = "#000000"
+		gfx.cross({x: this.x, y: y}, color)
+
+		if(op_y) {
+			gfx.draw_arrow_to_op(this, y, op_y, isOutput)
+		}
 	}
 
 	toJson() : any {
@@ -84,7 +99,7 @@ class Complete extends Notification {
 		return Rx.ReactiveTest.onCompleted(this.x)
 	}
 
-	draw(gfx: Graphics, y : number, op_y: number, isOutput: boolean) : void {
+	draw(gfx: Graphics, y : number, isOutput: boolean, onStream: boolean, op_y?: number, isMarked?: boolean) : void {
 		gfx.line({x: this.x, y: y - eventRadius}, {x: this.x, y: y + eventRadius},  "#000000");
 	}
 
@@ -211,20 +226,21 @@ class BasicStream extends OutputStream<Notification> {
 
 		// Check if there are notifications that should not be in the list.
 		if (notif instanceof Err || notif instanceof Complete) {
-			// If this notification is the last one added to uniqueNotifs, it is valid.
-			return notif.x === uniqueNotifs[uniqueNotifs.length - 1].x
+			if(uniqueNotifs.length == 0) {
+				return true
+			} else {
+				// If this notification is the last one added to uniqueNotifs, it is valid.
+				return notif.x === uniqueNotifs[uniqueNotifs.length - 1].x
+			}
 		} else {
 			// The notification is an Event
 			var evt = <Evt> notif
 			// If this stream enforces shapes and the event has a shape
-			console.log(this.shape)
-			console.log(evt.shape)
 			var validShape = true
 			if(this.shape && evt.shape) { 
 				// Then they have to be the same
 				validShape = evt.shape == this.shape
 			}
-			console.log(validShape)
 
 			// If this Notification occurs before the latest unique notification, then that is part 1.
 			var notifBeforeEnd = !uniqueNotifs.some(function(uniqueNotif) {
@@ -259,7 +275,7 @@ class BasicStream extends OutputStream<Notification> {
 	draw(gfx: Graphics, op_y : number) : void {
 		this.notifications.forEach((notif) => {
 			var y = Util.intersection(this, notif.x)
-			notif.draw(gfx, y, op_y, this.isOutput)
+			notif.drawOnStream(gfx, y, this.isOutput, op_y)
 		})
 		gfx.arrow(this.start, this.end, false)
 	}
@@ -316,21 +332,21 @@ class Graphics {
 		}
 	}
 
-	draw_cursor(mousePos: MousePos, currStream: BasicStream): void {
+	draw_cursor(mousePos: MousePos, shape: string, currStream: BasicStream): void {
 		// Check if currStream not null
 		if(currStream) {
-			var isMarked = (currStream.onNotification(mousePos.x) != null) || !currStream.validNotification(new Notification(mousePos.x))
-			var loc = {x: mousePos.x, y: Util.intersection(currStream, mousePos.x)}
-			switch (currStream.shape) {
-				case "circle":
-					this.circle(loc, "red", isMarked, false)
-					break
-				case "square":
-					this.square(loc, "red", isMarked, false)
-					break
-				case "triangle":
-					this.triangle(loc, "red", isMarked, false)
+			var notif: Notification 
+			if(shape == "error") {
+				notif = new Err(mousePos.x)
+			} else if(shape == "complete") {
+				notif = new Complete(mousePos.x)
+			} else {
+				notif = new Evt(mousePos.x, shape)
 			}
+
+			var isMarked = (currStream.onNotification(mousePos.x) != null) || !currStream.validNotification(notif)
+			var y = Util.intersection(currStream, mousePos.x)
+			notif.draw(this, y, true, false, undefined, isMarked)
 		}
 	}
 
@@ -565,8 +581,8 @@ module Util {
 }
 
 interface Tuple2<T1, T2> {
-	1: T1;
-	2: T2;
+	_1: T1;
+	_2: T2;
 }
 
 class MarbleDrawer {
@@ -600,29 +616,29 @@ class MarbleDrawer {
 		// On mouse down add an event to the current stream.
 		var mouseDown = Rx.Observable.fromEvent(canvas, 'mousedown')
 		var mouseShape : Rx.Observable<Tuple2<MousePos, string>> = mousePos.combineLatest(mouseEventType, (pos, type) => {
-			return {1: pos, 2: type}
+			return {_1: pos, _2: type}
 		})
 		Util.triggeredObservable(mouseShape, mouseDown)
 			.subscribe(this.mouseDownHandler(streams))
 
 		// When a key is pressed, add the appriopriate notification to the stream.
 		var keypress = <Rx.Observable<KeyboardEvent>> Rx.Observable.fromEvent(canvas, 'keypress')
-		var combined : Rx.Observable<Tuple2<KeyboardEvent, MousePos>> = keypress.combineLatest(mousePos, (s1, s2) =>{ return {1: s1, 2: s2} })
+		var combined : Rx.Observable<Tuple2<KeyboardEvent, MousePos>> = keypress.combineLatest(mousePos, (s1, s2) =>{ return {_1: s1, _2: s2} })
 		// Every keypress, trigger the output.
 		Util.triggeredObservable(combined, keypress)
 			.subscribe(this.keyboardHandler(streams))
 
 		// On any user event, update the canvas.
-		mousePos.combineLatest(
+		mouseShape.combineLatest(
 				//Make sure it has a starting value, for initial rendering.
 				(<Rx.Observable<any>> keypress).merge(mouseDown).startWith(''),
 				// Only return the mouse pos
 				(s1, s2) => {return s1}
 			).throttle(1) // Limit to one update per ms
-			.subscribe( (mouseEvt: MousePos) => {
+			.subscribe( (mouseShape: Tuple2<MousePos, string>) => {
 				// Update the output stream
 				var outputStream = createOutputStream(streams, op_y)
-				this.render(canvas, mouseEvt, streams, outputStream, op_y)
+				this.render(canvas, mouseShape._1, mouseShape._2, streams, outputStream, op_y)
 			})
 
 		// On every create Json event, call the Json output with the output stream.
@@ -644,13 +660,16 @@ class MarbleDrawer {
 	mouseDownHandler(streams: BasicStream[])
 		: (Tuple2) => void { //Tuple2<MousePos, string>
 		return (mouseShape: Tuple2<MousePos, string>) => {
-			var mousePos = mouseShape[1]
-			var shape = mouseShape[2]
+			var mousePos = mouseShape._1
+			var shape = mouseShape._2
 			var currStream = Util.getCurrentStream(mousePos, streams)
- 	 	 	 // If there is no current stream
+			// If there is no current stream
 			if(!currStream) return
 
-			if(shape == "error" || shape == "complete"){
+			if(shape == "error") {
+				currStream.setError(mousePos.x)
+			} else if(shape == "complete") {
+				currStream.setCompleteTime(mousePos.x)
 			} else {
 				currStream.addEvent(mousePos.x, shape)
 			}
@@ -660,10 +679,10 @@ class MarbleDrawer {
 	keyboardHandler(streams: BasicStream[])
 	: (Tuple2) => void { // Tuple2<KeyboardEvent, MousePos> => void
 		return (evts: Tuple2<KeyboardEvent, MousePos>) => {
-			var mousePos = evts[2]
+			var mousePos = evts._2
 			var currStream = Util.getCurrentStream(mousePos, streams)
 			if(currStream) {
-				switch (evts[1].which) {
+				switch (evts._1.which) {
 					case 101:
 						currStream.setError(mousePos.x)
 						break
@@ -676,6 +695,7 @@ class MarbleDrawer {
 
 	render(canvas: HTMLCanvasElement,
 			mousePos: MousePos,
+			mouseShape: string,
 			inputStreams: BasicStream[],
 			outputStream: OutputStream<any>,
 			op_y: number)
@@ -688,7 +708,7 @@ class MarbleDrawer {
 		var gfx = new Graphics(canvas, ctx)
 		var allStreams = (<Stream<any>[]> inputStreams).concat(outputStream)
 		allStreams.forEach((stream) => {stream.draw(gfx, op_y)})
-		gfx.draw_cursor(mousePos, Util.getCurrentStream(mousePos, inputStreams))
+		gfx.draw_cursor(mousePos, mouseShape, Util.getCurrentStream(mousePos, inputStreams))
 		gfx.draw_operator(op_y)
 	}
 }

@@ -23,7 +23,11 @@ var Notification = (function () {
         throw new Error("toRecorded not implemented");
     };
 
-    Notification.prototype.draw = function (gfx, y, op_y, isOutput) {
+    Notification.prototype.drawOnStream = function (gfx, y, isOutput, op_y) {
+        this.draw(gfx, y, isOutput, true, op_y);
+    };
+
+    Notification.prototype.draw = function (gfx, y, isOutput, onStream, op_y, isMarked) {
         throw new Error("draw not implemented");
     };
 
@@ -44,18 +48,26 @@ var Evt = (function (_super) {
         return Rx.ReactiveTest.onNext(this.x, this);
     };
 
-    Evt.prototype.draw = function (gfx, y, op_y, isOutput) {
+    Evt.prototype.draw = function (gfx, y, isOutput, onStream, op_y, isMarked) {
+        if (onStream && !op_y)
+            throw new Error("Expected op_y");
+        var marked = false;
+        if (isMarked)
+            marked = isMarked;
+
         switch (this.shape) {
             case "circle":
-                gfx.circle({ x: this.x, y: y }, this.color, false, true);
+                gfx.circle({ x: this.x, y: y }, this.color, marked, onStream);
                 break;
             case "square":
-                gfx.square({ x: this.x, y: y }, this.color, false, true);
+                gfx.square({ x: this.x, y: y }, this.color, marked, onStream);
                 break;
             case "triangle":
-                gfx.triangle({ x: this.x, y: y }, this.color, false, true);
+                gfx.triangle({ x: this.x, y: y }, this.color, marked, onStream);
         }
-        gfx.draw_arrow_to_op(this, y, op_y, isOutput);
+        if (op_y) {
+            gfx.draw_arrow_to_op(this, y, op_y, isOutput);
+        }
     };
 
     Evt.prototype.toJson = function () {
@@ -73,9 +85,15 @@ var Err = (function (_super) {
         return Rx.ReactiveTest.onError(this.x, this);
     };
 
-    Err.prototype.draw = function (gfx, y, op_y, isOutput) {
-        gfx.cross({ x: this.x, y: y }, this.color);
-        gfx.draw_arrow_to_op(this, y, op_y, isOutput);
+    Err.prototype.draw = function (gfx, y, isOutput, onStream, op_y, isMarked) {
+        var color = this.color;
+        if (!onStream)
+            color = "#000000";
+        gfx.cross({ x: this.x, y: y }, color);
+
+        if (op_y) {
+            gfx.draw_arrow_to_op(this, y, op_y, isOutput);
+        }
     };
 
     Err.prototype.toJson = function () {
@@ -93,7 +111,7 @@ var Complete = (function (_super) {
         return Rx.ReactiveTest.onCompleted(this.x);
     };
 
-    Complete.prototype.draw = function (gfx, y, op_y, isOutput) {
+    Complete.prototype.draw = function (gfx, y, isOutput, onStream, op_y, isMarked) {
         gfx.line({ x: this.x, y: y - eventRadius }, { x: this.x, y: y + eventRadius }, "#000000");
     };
 
@@ -218,21 +236,22 @@ var BasicStream = (function (_super) {
 
         // Check if there are notifications that should not be in the list.
         if (notif instanceof Err || notif instanceof Complete) {
-            // If this notification is the last one added to uniqueNotifs, it is valid.
-            return notif.x === uniqueNotifs[uniqueNotifs.length - 1].x;
+            if (uniqueNotifs.length == 0) {
+                return true;
+            } else {
+                // If this notification is the last one added to uniqueNotifs, it is valid.
+                return notif.x === uniqueNotifs[uniqueNotifs.length - 1].x;
+            }
         } else {
             // The notification is an Event
             var evt = notif;
 
             // If this stream enforces shapes and the event has a shape
-            console.log(this.shape);
-            console.log(evt.shape);
             var validShape = true;
             if (this.shape && evt.shape) {
                 // Then they have to be the same
                 validShape = evt.shape == this.shape;
             }
-            console.log(validShape);
 
             // If this Notification occurs before the latest unique notification, then that is part 1.
             var notifBeforeEnd = !uniqueNotifs.some(function (uniqueNotif) {
@@ -271,7 +290,7 @@ var BasicStream = (function (_super) {
         var _this = this;
         this.notifications.forEach(function (notif) {
             var y = Util.intersection(_this, notif.x);
-            notif.draw(gfx, y, op_y, _this.isOutput);
+            notif.drawOnStream(gfx, y, _this.isOutput, op_y);
         });
         gfx.arrow(this.start, this.end, false);
     };
@@ -332,21 +351,21 @@ var Graphics = (function () {
         }
     };
 
-    Graphics.prototype.draw_cursor = function (mousePos, currStream) {
+    Graphics.prototype.draw_cursor = function (mousePos, shape, currStream) {
         // Check if currStream not null
         if (currStream) {
-            var isMarked = (currStream.onNotification(mousePos.x) != null) || !currStream.validNotification(new Notification(mousePos.x));
-            var loc = { x: mousePos.x, y: Util.intersection(currStream, mousePos.x) };
-            switch (currStream.shape) {
-                case "circle":
-                    this.circle(loc, "red", isMarked, false);
-                    break;
-                case "square":
-                    this.square(loc, "red", isMarked, false);
-                    break;
-                case "triangle":
-                    this.triangle(loc, "red", isMarked, false);
+            var notif;
+            if (shape == "error") {
+                notif = new Err(mousePos.x);
+            } else if (shape == "complete") {
+                notif = new Complete(mousePos.x);
+            } else {
+                notif = new Evt(mousePos.x, shape);
             }
+
+            var isMarked = (currStream.onNotification(mousePos.x) != null) || !currStream.validNotification(notif);
+            var y = Util.intersection(currStream, mousePos.x);
+            notif.draw(this, y, true, false, undefined, isMarked);
         }
     };
 
@@ -620,27 +639,27 @@ var MarbleDrawer = (function () {
         // On mouse down add an event to the current stream.
         var mouseDown = Rx.Observable.fromEvent(canvas, 'mousedown');
         var mouseShape = mousePos.combineLatest(mouseEventType, function (pos, type) {
-            return { 1: pos, 2: type };
+            return { _1: pos, _2: type };
         });
         Util.triggeredObservable(mouseShape, mouseDown).subscribe(this.mouseDownHandler(streams));
 
         // When a key is pressed, add the appriopriate notification to the stream.
         var keypress = Rx.Observable.fromEvent(canvas, 'keypress');
         var combined = keypress.combineLatest(mousePos, function (s1, s2) {
-            return { 1: s1, 2: s2 };
+            return { _1: s1, _2: s2 };
         });
 
         // Every keypress, trigger the output.
         Util.triggeredObservable(combined, keypress).subscribe(this.keyboardHandler(streams));
 
         // On any user event, update the canvas.
-        mousePos.combineLatest(keypress.merge(mouseDown).startWith(''), // Only return the mouse pos
+        mouseShape.combineLatest(keypress.merge(mouseDown).startWith(''), // Only return the mouse pos
         function (s1, s2) {
             return s1;
-        }).throttle(1).subscribe(function (mouseEvt) {
+        }).throttle(1).subscribe(function (mouseShape) {
             // Update the output stream
             var outputStream = createOutputStream(streams, op_y);
-            _this.render(canvas, mouseEvt, streams, outputStream, op_y);
+            _this.render(canvas, mouseShape._1, mouseShape._2, streams, outputStream, op_y);
         });
 
         // On every create Json event, call the Json output with the output stream.
@@ -660,15 +679,18 @@ var MarbleDrawer = (function () {
 
     MarbleDrawer.prototype.mouseDownHandler = function (streams) {
         return function (mouseShape) {
-            var mousePos = mouseShape[1];
-            var shape = mouseShape[2];
+            var mousePos = mouseShape._1;
+            var shape = mouseShape._2;
             var currStream = Util.getCurrentStream(mousePos, streams);
 
             // If there is no current stream
             if (!currStream)
                 return;
 
-            if (shape == "error" || shape == "complete") {
+            if (shape == "error") {
+                currStream.setError(mousePos.x);
+            } else if (shape == "complete") {
+                currStream.setCompleteTime(mousePos.x);
             } else {
                 currStream.addEvent(mousePos.x, shape);
             }
@@ -677,10 +699,10 @@ var MarbleDrawer = (function () {
 
     MarbleDrawer.prototype.keyboardHandler = function (streams) {
         return function (evts) {
-            var mousePos = evts[2];
+            var mousePos = evts._2;
             var currStream = Util.getCurrentStream(mousePos, streams);
             if (currStream) {
-                switch (evts[1].which) {
+                switch (evts._1.which) {
                     case 101:
                         currStream.setError(mousePos.x);
                         break;
@@ -691,7 +713,7 @@ var MarbleDrawer = (function () {
         };
     };
 
-    MarbleDrawer.prototype.render = function (canvas, mousePos, inputStreams, outputStream, op_y) {
+    MarbleDrawer.prototype.render = function (canvas, mousePos, mouseShape, inputStreams, outputStream, op_y) {
         var ctx = canvas.getContext("2d");
 
         // Adjust context height depending on output stream
@@ -703,7 +725,7 @@ var MarbleDrawer = (function () {
         allStreams.forEach(function (stream) {
             stream.draw(gfx, op_y);
         });
-        gfx.draw_cursor(mousePos, Util.getCurrentStream(mousePos, inputStreams));
+        gfx.draw_cursor(mousePos, mouseShape, Util.getCurrentStream(mousePos, inputStreams));
         gfx.draw_operator(op_y);
     };
     return MarbleDrawer;

@@ -8,10 +8,8 @@ module Menu {
 			(<HTMLElement> mouseEvt.target).id = "selected"
 		})
 		// Add circle as the default value
-		var selected = new Rx.BehaviorSubject("circle")
-		clickObs.map((mouseEvt) => {
+		return 	clickObs.map((mouseEvt) => {
 			return (<HTMLElement> mouseEvt.target).getAttribute("value")
-		}).subscribe(selected)
-		return selected
+		}).startWith('circle')
 	}
 }

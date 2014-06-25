@@ -25,23 +25,8 @@ var GroupBy;
             preformat.innerHTML = JSON.stringify({ streams: [outputStream.toJson()] }, undefined, 2);
         };
 
-        var groupByDrawer = new GroupByDrawer(canvas, streamJson, create_output_stream, jsonCreate, jsonOutput, selection);
+        var groupByDrawer = new MarbleDrawer(canvas, streamJson, create_output_stream, jsonCreate, jsonOutput, selection);
     });
-
-    var GroupByDrawer = (function (_super) {
-        __extends(GroupByDrawer, _super);
-        function GroupByDrawer() {
-            _super.apply(this, arguments);
-        }
-        GroupByDrawer.prototype.mouseDownHandler = function (streams) {
-            return function (mousePos) {
-                var currStream = Util.getCurrentStream(mousePos, streams);
-                if (currStream)
-                    currStream.addEvent(mousePos.x, Util.randomShape());
-            };
-        };
-        return GroupByDrawer;
-    })(MarbleDrawer);
 
     var GroupByStream = (function (_super) {
         __extends(GroupByStream, _super);
@@ -113,7 +98,7 @@ var GroupBy;
             this.end = this.start = { x: err.x, y: y };
         }
         StreamError.prototype.draw = function (gfx, op_y) {
-            _super.prototype.draw.call(this, gfx, this.start.y, op_y, this.isOutput);
+            _super.prototype.draw.call(this, gfx, this.start.y, this.isOutput, true, op_y);
         };
 
         StreamError.prototype.height = function () {
@@ -131,7 +116,7 @@ var GroupBy;
             this.end = this.start = { x: x, y: y };
         }
         StreamComplete.prototype.draw = function (gfx, op_y) {
-            _super.prototype.draw.call(this, gfx, this.start.y, op_y, this.isOutput);
+            _super.prototype.draw.call(this, gfx, this.start.y, this.isOutput, true, op_y);
         };
 
         StreamComplete.prototype.height = function () {

@@ -10,11 +10,9 @@ var Menu;
         });
 
         // Add circle as the default value
-        var selected = new Rx.BehaviorSubject("circle");
-        clickObs.map(function (mouseEvt) {
+        return clickObs.map(function (mouseEvt) {
             return mouseEvt.target.getAttribute("value");
-        }).subscribe(selected);
-        return selected;
+        }).startWith('circle');
     }
     Menu.selectedElement = selectedElement;
 })(Menu || (Menu = {}));
