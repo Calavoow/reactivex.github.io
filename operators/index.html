@@ -10,6 +10,7 @@ customJS:
   - RxJS/dist/rx.time.js
   - rx/rx.angular.js
   - marble/marble.js
+  - operators/menu.js
   - operators/amb.js
   - operators/groupBy.js
   - operators/merge.js
@@ -20,21 +21,34 @@ Use left mouse button to add events. 'E' to add Errors and 'C' to add Completion
 
 <h2>Amb</h2>
 <canvas id="amb" width="578" height="380" tabindex="1" style="border: 1px solid #000000; margin: 10px;"></canvas>
-<div>
-	<button id="ambJsonButton">Generate JSON</button>
-</div>
+<div class="marbleMenu" id="ambMenu">
+	<img src="../assets/img/circle_crop.png" id="selected" value="circle"/>
+	<img src="../assets/img/square_crop.png" value="square" />
+	<img src="../assets/img/error_crop.png" value="error" />
+	<img src="../assets/img/complete_crop.png" value="complete"/>
+</div><br />
+<button id="ambJsonButton">Generate JSON</button>
 <pre id="ambJson" style="display: none"></pre>
 
 <h2>GroupBy</h2>
 <canvas id="groupBy" width="578" height="500" tabindex="1" style="border: 1px solid #000000; margin: 10px;"></canvas>
-<div>
-	<button id="groupByJsonButton">Generate JSON</button>
-</div>
+<div class="marbleMenu" id="groupByMenu">
+	<img src="../assets/img/circle_crop.png" id="selected" value="circle"/>
+	<img src="../assets/img/square_crop.png" value="square" />
+	<img src="../assets/img/triangle_crop.png" value="triangle" />
+	<img src="../assets/img/error_crop.png" value="error" />
+	<img src="../assets/img/complete_crop.png" value="complete"/>
+</div><br />
+<button id="groupByJsonButton">Generate JSON</button>
 <pre id="groupByJson" style="display: none"></pre>
 
 <h2>Merge</h2>
 <canvas id="merge" width="578" height="380" tabindex="1" style="border: 1px solid #000000; margin: 10px;"></canvas>
-<div>
-	<button id="mergeJsonButton">Generate JSON</button>
-</div>
+<div class="marbleMenu" id="mergeMenu">
+	<img src="../assets/img/circle_crop.png" id="selected" value="circle"/>
+	<img src="../assets/img/square_crop.png" value="square" />
+	<img src="../assets/img/error_crop.png" value="error" />
+	<img src="../assets/img/complete_crop.png" value="complete"/>
+</div><br />
+<button id="mergeJsonButton">Generate JSON</button>
 <pre id="mergeJson" style="display: none"></pre>

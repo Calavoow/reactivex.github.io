@@ -47,13 +47,13 @@ var Evt = (function (_super) {
     Evt.prototype.draw = function (gfx, y, op_y, isOutput) {
         switch (this.shape) {
             case "circle":
-                gfx.circle(this.x, y, this.color, false, true);
+                gfx.circle({ x: this.x, y: y }, this.color, false, true);
                 break;
             case "square":
-                gfx.square(this.x, y, this.color, false, true);
+                gfx.square({ x: this.x, y: y }, this.color, false, true);
                 break;
             case "triangle":
-                gfx.triangle(this.x, y, this.color, false, true);
+                gfx.triangle({ x: this.x, y: y }, this.color, false, true);
         }
         gfx.draw_arrow_to_op(this, y, op_y, isOutput);
     };
@@ -74,7 +74,7 @@ var Err = (function (_super) {
     };
 
     Err.prototype.draw = function (gfx, y, op_y, isOutput) {
-        gfx.draw_cross(this.x, y, this.color);
+        gfx.cross({ x: this.x, y: y }, this.color);
         gfx.draw_arrow_to_op(this, y, op_y, isOutput);
     };
 
@@ -94,7 +94,7 @@ var Complete = (function (_super) {
     };
 
     Complete.prototype.draw = function (gfx, y, op_y, isOutput) {
-        gfx.draw_line(this.x, y - eventRadius, this.x, y + eventRadius, "#000000");
+        gfx.line({ x: this.x, y: y - eventRadius }, { x: this.x, y: y + eventRadius }, "#000000");
     };
 
     Complete.prototype.toJson = function () {
@@ -113,12 +113,8 @@ var Stream = (function () {
         this.start = start;
         this.end = end;
         this.isOutput = isOutput;
-        if (shape)
-            this.shape = shape;
-        if (!isOutput && shape == null) {
-            throw Error("Expected shape");
-        }
         this.notifications = [];
+        this.shape = shape;
     }
     Stream.prototype.draw = function (gfx, op_y) {
         throw new Error("draw not implemented");
@@ -225,13 +221,27 @@ var BasicStream = (function (_super) {
             // If this notification is the last one added to uniqueNotifs, it is valid.
             return notif.x === uniqueNotifs[uniqueNotifs.length - 1].x;
         } else {
+            // The notification is an Event
+            var evt = notif;
+
+            // If this stream enforces shapes and the event has a shape
+            console.log(this.shape);
+            console.log(evt.shape);
+            var validShape = true;
+            if (this.shape && evt.shape) {
+                // Then they have to be the same
+                validShape = evt.shape == this.shape;
+            }
+            console.log(validShape);
+
             // If this Notification occurs before the latest unique notification, then that is part 1.
             var notifBeforeEnd = !uniqueNotifs.some(function (uniqueNotif) {
                 return notif.x + eventRadius >= uniqueNotif.x;
             });
 
             // And if it is after the start of the Stream then it is valid.
-            return notifBeforeEnd && notif.x - eventRadius > this.start.x;
+            var notifAfterBegin = notif.x - eventRadius > this.start.x;
+            return validShape && notifBeforeEnd && notifAfterBegin;
         }
     };
 
@@ -263,7 +273,7 @@ var BasicStream = (function (_super) {
             var y = Util.intersection(_this, notif.x);
             notif.draw(gfx, y, op_y, _this.isOutput);
         });
-        gfx.draw_arrow(this.start, this.end);
+        gfx.arrow(this.start, this.end, false);
     };
 
     BasicStream.prototype.height = function () {
@@ -316,9 +326,9 @@ var Graphics = (function () {
     }
     Graphics.prototype.draw_arrow_to_op = function (notif, y, op_y, isOutput) {
         if (isOutput) {
-            this.draw_dashed_arrow(notif.x, op_y + 2.5 * eventRadius, y - eventRadius);
+            this.arrow({ x: notif.x, y: op_y + 2.5 * eventRadius }, { x: notif.x, y: y - eventRadius }, true);
         } else {
-            this.draw_dashed_arrow(notif.x, y + eventRadius, op_y);
+            this.arrow({ x: notif.x, y: y + eventRadius }, { x: notif.x, y: op_y }, true);
         }
     };
 
@@ -326,16 +336,16 @@ var Graphics = (function () {
         // Check if currStream not null
         if (currStream) {
             var isMarked = (currStream.onNotification(mousePos.x) != null) || !currStream.validNotification(new Notification(mousePos.x));
-            var y = Util.intersection(currStream, mousePos.x);
+            var loc = { x: mousePos.x, y: Util.intersection(currStream, mousePos.x) };
             switch (currStream.shape) {
                 case "circle":
-                    this.circle(mousePos.x, y, "red", isMarked, false);
+                    this.circle(loc, "red", isMarked, false);
                     break;
                 case "square":
-                    this.square(mousePos.x, y, "red", isMarked, false);
+                    this.square(loc, "red", isMarked, false);
                     break;
                 case "triangle":
-                    this.triangle(mousePos.x, y, "red", isMarked, false);
+                    this.triangle(loc, "red", isMarked, false);
             }
         }
     };
@@ -351,33 +361,43 @@ var Graphics = (function () {
     /**
     * GRAPHICAL PRIMITIVES
     **/
-    Graphics.prototype.draw_line = function (fromx, fromy, tox, toy, color) {
+    Graphics.prototype.line = function (from, to, color) {
         this.ctx.beginPath();
         this.ctx.lineWidth = 3;
         this.ctx.strokeStyle = color;
-        this.ctx.moveTo(fromx, fromy);
-        this.ctx.lineTo(tox, toy);
+        this.ctx.moveTo(from.x, from.y);
+        this.ctx.lineTo(to.x, to.y);
         this.ctx.stroke();
     };
 
-    Graphics.prototype.draw_cross = function (centerx, centery, color) {
-        this.draw_line(centerx - eventRadius, centery + eventRadius, centerx + eventRadius, centery - eventRadius, color);
-        this.draw_line(centerx - eventRadius, centery - eventRadius, centerx + eventRadius, centery + eventRadius, color);
+    Graphics.prototype.cross = function (center, color) {
+        this.line({ x: center.x - eventRadius, y: center.y + eventRadius }, { x: center.x + eventRadius, y: center.y - eventRadius }, color);
+        this.line({ x: center.x - eventRadius, y: center.y - eventRadius }, { x: center.x + eventRadius, y: center.y + eventRadius }, color);
     };
 
-    Graphics.prototype.draw_arrow = function (from, to) {
+    Graphics.prototype.arrow = function (from, to, dashed) {
         this.ctx.beginPath();
 
         // Draw the line
         this.ctx.lineWidth = 3;
         this.ctx.strokeStyle = "#000000";
+        if (dashed) {
+            this.ctx.setLineDash([4, 7]);
+        }
         this.ctx.moveTo(from.x, from.y);
 
         var norm = Util.normalizeVector(Util.makeVector(from, to));
         var arrowBase = { x: to.x - norm.x * eventRadius, y: to.y - norm.y * eventRadius };
         this.ctx.lineTo(arrowBase.x, arrowBase.y);
+        this.ctx.closePath();
+        this.ctx.stroke();
+
+        if (dashed) {
+            this.ctx.setLineDash([]);
+        }
 
         // Draw the arrow
+        this.ctx.beginPath();
         var perp = Util.perpendicularVector(norm);
         this.ctx.moveTo(arrowBase.x - perp.x * eventRadius, arrowBase.y - 0.5 * perp.y * eventRadius);
         this.ctx.lineTo(to.x, to.y);
@@ -386,27 +406,9 @@ var Graphics = (function () {
         this.ctx.stroke();
     };
 
-    Graphics.prototype.draw_dashed_arrow = function (x, fromy, toy) {
+    Graphics.prototype.circle = function (center, color, isMarked, doFill) {
         this.ctx.beginPath();
-        this.ctx.lineWidth = 3;
-        this.ctx.strokeStyle = "#000000";
-        this.ctx.setLineDash([4, 7]);
-        this.ctx.moveTo(x, fromy);
-        this.ctx.lineTo(x, toy - eventRadius);
-        this.ctx.closePath();
-        this.ctx.stroke();
-        this.ctx.beginPath();
-        this.ctx.setLineDash([]);
-        this.ctx.moveTo(x - 0.5 * eventRadius, toy - eventRadius);
-        this.ctx.lineTo(x, toy);
-        this.ctx.lineTo(x + 0.5 * eventRadius, toy - eventRadius);
-        this.ctx.closePath();
-        this.ctx.stroke();
-    };
-
-    Graphics.prototype.circle = function (centerx, centery, color, isMarked, doFill) {
-        this.ctx.beginPath();
-        this.ctx.arc(centerx, centery, eventRadius, 0, 2 * Math.PI, false);
+        this.ctx.arc(center.x, center.y, eventRadius, 0, 2 * Math.PI, false);
         if (doFill) {
             this.ctx.fillStyle = color;
             this.ctx.fill();
@@ -416,9 +418,9 @@ var Graphics = (function () {
         this.ctx.stroke();
     };
 
-    Graphics.prototype.square = function (centerx, centery, color, isMarked, doFill) {
+    Graphics.prototype.square = function (center, color, isMarked, doFill) {
         this.ctx.beginPath();
-        this.ctx.rect(centerx - eventRadius, centery - eventRadius, 2 * eventRadius, 2 * eventRadius);
+        this.ctx.rect(center.x - eventRadius, center.y - eventRadius, 2 * eventRadius, 2 * eventRadius);
         if (doFill) {
             this.ctx.fillStyle = color;
             this.ctx.fill();
@@ -433,11 +435,11 @@ var Graphics = (function () {
     *
     * An equilateral triangle looks bad, because it looks unaligned with the square and circle.
     **/
-    Graphics.prototype.triangle = function (centerx, centery, color, isMarked, doFill) {
+    Graphics.prototype.triangle = function (center, color, isMarked, doFill) {
         this.ctx.beginPath();
-        this.ctx.moveTo(centerx, centery - eventRadius);
-        this.ctx.lineTo(centerx + Math.cos(7 / 6 * Math.PI) * eventRadius, centery + eventRadius);
-        this.ctx.lineTo(centerx + Math.cos(11 / 6 * Math.PI) * eventRadius, centery + eventRadius);
+        this.ctx.moveTo(center.x, center.y - eventRadius);
+        this.ctx.lineTo(center.x + Math.cos(7 / 6 * Math.PI) * eventRadius, center.y + eventRadius);
+        this.ctx.lineTo(center.x + Math.cos(11 / 6 * Math.PI) * eventRadius, center.y + eventRadius);
         this.ctx.closePath();
         if (doFill) {
             this.ctx.fillStyle = color;
@@ -592,7 +594,7 @@ var Util;
 })(Util || (Util = {}));
 
 var MarbleDrawer = (function () {
-    function MarbleDrawer(canvas, streamJson, createOutputStream, createJson, jsonOutput) {
+    function MarbleDrawer(canvas, streamJson, createOutputStream, createJson, jsonOutput, mouseEventType) {
         var _this = this;
         var streams = this.initialiseStreamsJson(streamJson);
         var op_y = streams.reduce(function (accum, stream) {
@@ -617,7 +619,10 @@ var MarbleDrawer = (function () {
 
         // On mouse down add an event to the current stream.
         var mouseDown = Rx.Observable.fromEvent(canvas, 'mousedown');
-        Util.triggeredObservable(mousePos, mouseDown).subscribe(this.mouseDownHandler(streams));
+        var mouseShape = mousePos.combineLatest(mouseEventType, function (pos, type) {
+            return { 1: pos, 2: type };
+        });
+        Util.triggeredObservable(mouseShape, mouseDown).subscribe(this.mouseDownHandler(streams));
 
         // When a key is pressed, add the appriopriate notification to the stream.
         var keypress = Rx.Observable.fromEvent(canvas, 'keypress');
@@ -654,10 +659,19 @@ var MarbleDrawer = (function () {
     };
 
     MarbleDrawer.prototype.mouseDownHandler = function (streams) {
-        return function (mousePos) {
+        return function (mouseShape) {
+            var mousePos = mouseShape[1];
+            var shape = mouseShape[2];
             var currStream = Util.getCurrentStream(mousePos, streams);
-            if (currStream)
-                currStream.addEvent(mousePos.x);
+
+            // If there is no current stream
+            if (!currStream)
+                return;
+
+            if (shape == "error" || shape == "complete") {
+            } else {
+                currStream.addEvent(mousePos.x, shape);
+            }
         };
     };
 

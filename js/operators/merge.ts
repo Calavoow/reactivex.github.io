@@ -1,9 +1,14 @@
 /// <reference path="../marble/marble.ts"/>
+/// <reference path="menu.ts"/>
 
 module Merge {
 	window.addEventListener("load", () => {
 		var canvas = <HTMLCanvasElement> document.getElementById("merge")
 		var streamJson = Util.getJson("premade/merge.json")
+
+		// Menu
+		var menu = document.getElementById("mergeMenu")
+		var selection = Menu.selectedElement(menu)
 
 		// Json output
 		var preformat = document.getElementById("mergeJson")
@@ -14,7 +19,7 @@ module Merge {
 			preformat.innerHTML = JSON.stringify({streams: [outputStream.toJson()]}, undefined, 2)
 		}
 
-		var marbleDrawer = new MarbleDrawer(canvas, streamJson, create_output_stream, jsonCreate, jsonOutput)
+		var marbleDrawer = new MarbleDrawer(canvas, streamJson, create_output_stream, jsonCreate, jsonOutput, selection)
 	})
 
 	function create_output_stream(streams: BasicStream[], op_y: number) : BasicStream {

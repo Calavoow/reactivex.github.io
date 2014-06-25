@@ -1,4 +1,5 @@
 /// <reference path="../marble/marble.ts"/>
+/// <reference path="menu.ts"/>
 var __extends = this.__extends || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
     function __() { this.constructor = d; }
@@ -11,6 +12,10 @@ var GroupBy;
         var canvas = document.getElementById("groupBy");
         var streamJson = Util.getJson("premade/groupBy.json");
 
+        // Menu
+        var menu = document.getElementById("groupByMenu");
+        var selection = Menu.selectedElement(menu);
+
         // Json output
         var preformat = document.getElementById("groupByJson");
         var button = document.getElementById("groupByJsonButton");
@@ -20,7 +25,7 @@ var GroupBy;
             preformat.innerHTML = JSON.stringify({ streams: [outputStream.toJson()] }, undefined, 2);
         };
 
-        var groupByDrawer = new GroupByDrawer(canvas, streamJson, create_output_stream, jsonCreate, jsonOutput);
+        var groupByDrawer = new GroupByDrawer(canvas, streamJson, create_output_stream, jsonCreate, jsonOutput, selection);
     });
 
     var GroupByDrawer = (function (_super) {
@@ -78,7 +83,7 @@ var GroupBy;
             this.notifications.forEach(function (stream) {
                 stream.draw(gfx, op_y);
             });
-            gfx.draw_arrow(this.start, this.end);
+            gfx.arrow(this.start, this.end, false);
         };
 
         GroupByStream.prototype.height = function () {

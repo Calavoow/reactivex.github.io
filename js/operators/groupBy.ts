@@ -1,9 +1,14 @@
 /// <reference path="../marble/marble.ts"/>
+/// <reference path="menu.ts"/>
 
 module GroupBy {
 	window.addEventListener("load", () => {
 		var canvas = <HTMLCanvasElement> document.getElementById("groupBy")
 		var streamJson = Util.getJson("premade/groupBy.json")
+
+		// Menu
+		var menu = document.getElementById("groupByMenu")
+		var selection = Menu.selectedElement(menu)
 
 		// Json output
 		var preformat = document.getElementById("groupByJson")
@@ -14,7 +19,7 @@ module GroupBy {
 			preformat.innerHTML = JSON.stringify({streams: [outputStream.toJson()]}, undefined, 2)
 		}
 
-		var groupByDrawer = new GroupByDrawer(canvas, streamJson, create_output_stream, jsonCreate, jsonOutput)
+		var groupByDrawer = new GroupByDrawer(canvas, streamJson, create_output_stream, jsonCreate, jsonOutput, selection)
 	})
 
 	class GroupByDrawer extends MarbleDrawer {
@@ -63,7 +68,7 @@ module GroupBy {
 			this.notifications.forEach((stream) => {
 				stream.draw(gfx, op_y)
 			})
-			gfx.draw_arrow(this.start, this.end)
+			gfx.arrow(this.start, this.end, false)
 		}
 
 		height() : number {

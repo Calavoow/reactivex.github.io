@@ -427,3 +427,12 @@ pre tt {
     }
 }
 
+/**
+ * Marble Diagram
+ **/
+.marbleMenu img {
+	border: 2px solid white;
+}
+.marbleMenu #selected {
+	border: 2px solid red;
+}
