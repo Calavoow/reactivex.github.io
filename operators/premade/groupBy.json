@@ -9,8 +9,7 @@
 				{ "x": 300, "type": "Event", "shape": "circle"},
 				{ "x": 350, "type": "Event", "shape": "square"},
 				{ "x": 400, "type": "Complete"}
-			],
-			"shape": "circle"
+			]
 		}
 	]
 }
