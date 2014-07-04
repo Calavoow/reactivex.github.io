@@ -36,6 +36,33 @@ The marble diagrams should always show a technically correct representation of t
 They also should promote a good first impression of Rx and a deeper understanding of the operators.
 
 # Design
+The project is designed to use dynamic drawing features of the HTML canvas plus Javascript, 
+to give a web-based example for visitors of the ReactiveX website.
+Each operator will have its own canvas, which will have some additional functionality surrounding it,
+such as a menu for selection the event type and a button to generate JSON.
+The project also supports major browsers of the target audience, Firefox and Chrome.
+
+## Canvas
+The canvas will be the main feature of the dynamic marble diagram.
+A default marble diagram is drawn to give a first impression without interaction
+and also allow the creator to craft an interesting case of the marble diagram.
+The marble diagram is drawn with a similar style as used by the RxJava wiki,
+using shapes of marbles to specify event types.
+
+## Shape Menu 
+The shape menu allows users unfamiliar with the marble diagram concept to quickly grasp how to interact with the marble diagram.
+The project also supports the use of hotkeys for entering Error and Complete events,
+but hotkeys are not user-friendly for new users.
+This is why a menu is needed that shows all marble diagram shapes that can be used in the current operator,
+so that the user knows his options and can select and try them out at will.
+
+## JSON Output
+When the user has created an interesting scenario,
+the interactive marble diagram will also give him the option to save the corresponding output for later testing.
+The outputted file is formatted as a JSON file similar to the input files,
+with which the default scenario is created (see e.g. [merge](../operators/premade/merge.json)).
+The output will only be shown when a button is pressed, so that it does not take up much space when the feature is unused,
+as it can be quite lengthy.
 
 # Implementation
 
