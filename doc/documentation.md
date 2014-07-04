@@ -65,6 +65,24 @@ The output will only be shown when a button is pressed, so that it does not take
 as it can be quite lengthy.
 
 # Implementation
+At first the project started of as a Javascript project where the basic functionality of a marble diagram drawer was added.
+The basic implementation supported only the merge operator and the adding and removal of Notifications using the mouse.
+Then the project was converted to a Coffeescript project because of the syntax features.
+Consequently the project was generalised to allow for a larger variety of operators and 
+a more modular approach where any operator could be added to by a contributor.
+However, at last I switched to Typescript on advice of Erik Meijer,
+with the added benefit of static typechecking which can be very convenient and better support for the language.
+
+## Generalised Stream 
+The stream of events is stored in a custom object, the Stream.
+This object can generate an RxJS Observable and can also be generated from an Observable.
+The object also includes drawing functionality of the contents of the Stream.
+Any inheriting streams can override this functionality and provide their own implementation,
+which can be used to support a wide variety of Stream types.
+
+An alternative implementation, which hasn't been investigated yet, simply uses the RxJS Observable and subscribes drawing functions to that Observable.
+This way one step is avoided in the process of drawing an Observable, the transformation to a Stream.
+
 
 # Results
 
